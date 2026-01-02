@@ -2,7 +2,7 @@
 
 import time
 import uuid
-from django.test import TransactionTestCase
+from django.test import TestCase
 from django.contrib.auth import get_user_model
 from rest_framework.authtoken.models import Token
 from tasks.models import Task
@@ -11,10 +11,8 @@ from tasks.models import Task
 User = get_user_model()
 
 
-class PerformanceTests(TransactionTestCase):
+class PerformanceTests(TestCase):
     """Test suite for performance benchmarks."""
-    
-    reset_sequences = True
 
     def setUp(self):
         """Set up test user with unique credentials."""
@@ -139,10 +137,8 @@ class PerformanceTests(TransactionTestCase):
         self.assertLess(duration, 0.1)
 
 
-class ScalabilityTests(TransactionTestCase):
+class ScalabilityTests(TestCase):
     """Test scalability with multiple users."""
-    
-    reset_sequences = True
 
     def test_multiple_users_performance(self):
         """Test system performance with multiple users."""
