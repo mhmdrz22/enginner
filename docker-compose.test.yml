@@ -1,0 +1,68 @@
+version: '3.9'
+
+services:
+  test-db:
+    image: postgres:15-alpine
+    container_name: taskboard_test_db
+    environment:
+      POSTGRES_DB: test_taskboard_db
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - test_network
+
+  test-redis:
+    image: redis:7-alpine
+    container_name: taskboard_test_redis
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - test_network
+
+  test-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: taskboard_test_backend
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             pytest --cov=. --cov-report=html --cov-report=term"
+    environment:
+      - DEBUG=True
+      - DATABASE_URL=postgresql://test_user:test_password@test-db:5432/test_taskboard_db
+      - CELERY_BROKER_URL=redis://test-redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://test-redis:6379/1
+      - SECRET_KEY=test-secret-key-for-testing-only-not-for-production
+      - ALLOWED_HOSTS=*
+      - DJANGO_SETTINGS_MODULE=config.settings
+    depends_on:
+      test-db:
+        condition: service_healthy
+      test-redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - test_coverage:/app/htmlcov
+    networks:
+      - test_network
+
+volumes:
+  test_coverage:
+
+networks:
+  test_network:
+    driver: bridge
