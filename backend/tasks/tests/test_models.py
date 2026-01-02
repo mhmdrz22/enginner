@@ -17,6 +17,9 @@ class TaskModelTests(TestCase):
 
     def setUp(self):
         """Set up test data with unique user."""
+        # CRITICAL: Clean up any leftover data from previous tests
+        Task.objects.all().delete()
+        
         unique_id = uuid.uuid4().hex[:8]
         self.user = User.objects.create_user(
             email=f'taskuser_{unique_id}@example.com',
