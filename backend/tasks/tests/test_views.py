@@ -1,5 +1,6 @@
 """Tests for task views and API endpoints."""
 
+import uuid
 from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth import get_user_model
@@ -19,17 +20,24 @@ class TaskAPITests(TestCase):
 
     def setUp(self):
         """Set up test client and data."""
+        Task.objects.all().delete()
+        Token.objects.all().delete()
+        User.objects.all().delete()
+        
         self.client = APIClient()
         
-        # Create users
+        # Create users with unique IDs
+        user1_id = uuid.uuid4().hex[:8]
+        user2_id = uuid.uuid4().hex[:8]
+        
         self.user1 = User.objects.create_user(
-            email='user1@example.com',
-            username='user1',
+            email=f'user1_{user1_id}@example.com',
+            username=f'user1_{user1_id}',
             password='User1Pass123!'
         )
         self.user2 = User.objects.create_user(
-            email='user2@example.com',
-            username='user2',
+            email=f'user2_{user2_id}@example.com',
+            username=f'user2_{user2_id}',
             password='User2Pass123!'
         )
         
@@ -48,6 +56,12 @@ class TaskAPITests(TestCase):
             'priority': 'HIGH',
             'due_date': (timezone.now().date() + timedelta(days=7)).isoformat()
         }
+
+    def tearDown(self):
+        """Clean up after test."""
+        Task.objects.all().delete()
+        Token.objects.all().delete()
+        User.objects.all().delete()
 
     def test_list_tasks_authenticated(self):
         """Test authenticated user can list their tasks."""

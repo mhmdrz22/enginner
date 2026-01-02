@@ -1,5 +1,6 @@
 """Tests for accounts views and API endpoints."""
 
+import uuid
 from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth import get_user_model
@@ -16,22 +17,32 @@ class UserAuthenticationTests(TestCase):
 
     def setUp(self):
         """Set up test client and user data."""
+        User.objects.all().delete()
+        Token.objects.all().delete()
+        
         self.client = APIClient()
         self.register_url = reverse('accounts:register')
         self.login_url = reverse('accounts:login')
         
+        unique_id = uuid.uuid4().hex[:8]
         self.user_data = {
-            'email': 'test@example.com',
-            'username': 'testuser',
+            'email': f'test_{unique_id}@example.com',
+            'username': f'testuser_{unique_id}',
             'password': 'TestPass123!',
             'password2': 'TestPass123!'
         }
         
+        existing_id = uuid.uuid4().hex[:8]
         self.existing_user = User.objects.create_user(
-            email='existing@example.com',
-            username='existing',
+            email=f'existing_{existing_id}@example.com',
+            username=f'existing_{existing_id}',
             password='ExistingPass123!'
         )
+
+    def tearDown(self):
+        """Clean up after test."""
+        User.objects.all().delete()
+        Token.objects.all().delete()
 
     def test_user_registration_success(self):
         """Test successful user registration."""
@@ -54,9 +65,10 @@ class UserAuthenticationTests(TestCase):
 
     def test_user_registration_with_existing_email(self):
         """Test registration fails with existing email."""
+        unique_id = uuid.uuid4().hex[:8]
         data = {
-            'email': 'existing@example.com',
-            'username': 'newuser',
+            'email': self.existing_user.email,
+            'username': f'newuser_{unique_id}',
             'password': 'Pass123!',
             'password2': 'Pass123!'
         }
@@ -84,9 +96,10 @@ class UserAuthenticationTests(TestCase):
 
     def test_user_registration_missing_fields(self):
         """Test registration fails with missing required fields."""
+        unique_id = uuid.uuid4().hex[:8]
         response = self.client.post(
             self.register_url,
-            {'email': 'test@example.com'},
+            {'email': f'test_{unique_id}@example.com'},
             format='json'
         )
         
@@ -95,7 +108,7 @@ class UserAuthenticationTests(TestCase):
     def test_user_login_success(self):
         """Test successful user login."""
         data = {
-            'email': 'existing@example.com',
+            'email': self.existing_user.email,
             'password': 'ExistingPass123!'
         }
         
@@ -112,7 +125,7 @@ class UserAuthenticationTests(TestCase):
     def test_user_login_invalid_credentials(self):
         """Test login fails with invalid credentials."""
         data = {
-            'email': 'existing@example.com',
+            'email': self.existing_user.email,
             'password': 'WrongPassword123!'
         }
         
@@ -126,8 +139,9 @@ class UserAuthenticationTests(TestCase):
 
     def test_user_login_nonexistent_user(self):
         """Test login fails for non-existent user."""
+        unique_id = uuid.uuid4().hex[:8]
         data = {
-            'email': 'nonexistent@example.com',
+            'email': f'nonexistent_{unique_id}@example.com',
             'password': 'SomePass123!'
         }
         
@@ -145,15 +159,24 @@ class AuthenticatedUserTests(TestCase):
 
     def setUp(self):
         """Set up authenticated client."""
+        User.objects.all().delete()
+        Token.objects.all().delete()
+        
         self.client = APIClient()
+        unique_id = uuid.uuid4().hex[:8]
         self.user = User.objects.create_user(
-            email='auth@example.com',
-            username='authuser',
+            email=f'auth_{unique_id}@example.com',
+            username=f'authuser_{unique_id}',
             password='AuthPass123!'
         )
         self.token = Token.objects.create(user=self.user)
         self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token.key}')
         self.profile_url = reverse('accounts:profile')
+
+    def tearDown(self):
+        """Clean up after test."""
+        User.objects.all().delete()
+        Token.objects.all().delete()
 
     def test_get_user_profile(self):
         """Test authenticated user can get their profile."""
@@ -172,7 +195,8 @@ class AuthenticatedUserTests(TestCase):
 
     def test_update_user_profile(self):
         """Test user can update their profile."""
-        data = {'username': 'updateduser'}
+        unique_id = uuid.uuid4().hex[:8]
+        data = {'username': f'updateduser_{unique_id}'}
         response = self.client.patch(
             self.profile_url,
             data,
@@ -181,4 +205,4 @@ class AuthenticatedUserTests(TestCase):
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.user.refresh_from_db()
-        self.assertEqual(self.user.username, 'updateduser')
+        self.assertEqual(self.user.username, f'updateduser_{unique_id}')

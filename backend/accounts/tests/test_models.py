@@ -1,5 +1,6 @@
 """Tests for User model."""
 
+import uuid
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
@@ -13,12 +14,18 @@ class UserModelTests(TestCase):
     """Test suite for User model."""
 
     def setUp(self):
-        """Set up test data."""
+        """Set up test data with unique identifiers."""
+        User.objects.all().delete()
+        unique_id = uuid.uuid4().hex[:8]
         self.user_data = {
-            'email': 'test@example.com',
-            'username': 'testuser',
+            'email': f'test_{unique_id}@example.com',
+            'username': f'testuser_{unique_id}',
             'password': 'TestPass123!'
         }
+
+    def tearDown(self):
+        """Clean up after test."""
+        User.objects.all().delete()
 
     def test_create_user_with_email(self):
         """Test creating a user with email successfully."""
@@ -45,10 +52,11 @@ class UserModelTests(TestCase):
 
     def test_create_superuser(self):
         """Test creating a superuser."""
+        unique_id = uuid.uuid4().hex[:8]
         admin = User.objects.create_superuser(
-            email='admin@example.com',
+            email=f'admin_{unique_id}@example.com',
             password='AdminPass123!',
-            username='admin'
+            username=f'admin_{unique_id}'
         )
         
         self.assertTrue(admin.is_staff)
@@ -58,40 +66,43 @@ class UserModelTests(TestCase):
 
     def test_user_email_normalized(self):
         """Test email is normalized (lowercase domain)."""
-        email = 'test@EXAMPLE.COM'
+        unique_id = uuid.uuid4().hex[:8]
+        email = f'test_{unique_id}@EXAMPLE.COM'
         user = User.objects.create_user(
             email=email,
             password='testpass123'
         )
         
-        self.assertEqual(user.email, 'test@example.com')
+        self.assertEqual(user.email, f'test_{unique_id}@example.com')
 
     def test_duplicate_email_raises_error(self):
         """Test that duplicate email raises IntegrityError."""
+        unique_id = uuid.uuid4().hex[:8]
+        email = f'duplicate_{unique_id}@example.com'
         User.objects.create_user(
-            email='duplicate@example.com',
+            email=email,
             password='pass123'
         )
         
         with self.assertRaises(IntegrityError):
             User.objects.create_user(
-                email='duplicate@example.com',
+                email=email,
                 password='pass456'
             )
 
     def test_user_str_representation(self):
         """Test user string representation returns email."""
         user = User.objects.create_user(
-            email='test@example.com',
+            email=self.user_data['email'],
             password='pass123'
         )
         
-        self.assertEqual(str(user), 'test@example.com')
+        self.assertEqual(str(user), self.user_data['email'])
 
     def test_user_password_is_hashed(self):
         """Test that password is properly hashed."""
         user = User.objects.create_user(
-            email='test@example.com',
+            email=self.user_data['email'],
             password='plainpassword'
         )
         
@@ -101,7 +112,7 @@ class UserModelTests(TestCase):
     def test_user_can_change_password(self):
         """Test user can change password."""
         user = User.objects.create_user(
-            email='test@example.com',
+            email=self.user_data['email'],
             password='oldpass123'
         )
         
@@ -115,8 +126,9 @@ class UserModelTests(TestCase):
 
     def test_inactive_user_creation(self):
         """Test creating inactive user."""
+        unique_id = uuid.uuid4().hex[:8]
         user = User.objects.create_user(
-            email='inactive@example.com',
+            email=f'inactive_{unique_id}@example.com',
             password='pass123',
             is_active=False
         )
@@ -126,7 +138,7 @@ class UserModelTests(TestCase):
     def test_user_timestamps(self):
         """Test user has created_date and updated_date."""
         user = User.objects.create_user(
-            email='timestamp@example.com',
+            email=self.user_data['email'],
             password='pass123'
         )
         
