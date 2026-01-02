@@ -1,11 +1,18 @@
 from django.urls import path
-from . import views
+from .views import (
+    RegisterView,
+    LoginView,
+    ProfileView,
+    AdminOverviewView,
+    AdminNotifyView
+)
 
 urlpatterns = [
-    path("register/", views.RegisterView.as_view(), name="register"),
-    path("token/", views.CustomTokenObtainPairView.as_view(), name="token_obtain_pair"),
-    path("token/refresh/", views.TokenRefreshView.as_view(), name="token_refresh"),
-    path("token/verify/", views.TokenVerifyView.as_view(), name="token_verify"),
-    path("me/", views.CurrentUserView.as_view(), name="me"),
-    path("logout/", views.LogoutView.as_view(), name="logout"),
+    path('register/', RegisterView.as_view(), name='register'),
+    path('login/', LoginView.as_view(), name='login'),
+    path('profile/', ProfileView.as_view(), name='profile'),
+    
+    # Admin endpoints
+    path('admin/overview/', AdminOverviewView.as_view(), name='admin-overview'),
+    path('admin/notify/', AdminNotifyView.as_view(), name='admin-notify'),
 ]
