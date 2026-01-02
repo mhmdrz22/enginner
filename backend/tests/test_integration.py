@@ -15,11 +15,15 @@ User = get_user_model()
 class UserTaskFlowIntegrationTests(TransactionTestCase):
     """Test complete user journey from registration to task management."""
     
-    # Ensure complete database reset between tests
     serialized_rollback = True
 
     def setUp(self):
         """Set up API client."""
+        # Explicitly clean all data to ensure isolation
+        Task.objects.all().delete()
+        Token.objects.all().delete()
+        User.objects.all().delete()
+        
         self.client = APIClient()
 
     def test_complete_user_journey(self):
@@ -206,11 +210,15 @@ class UserTaskFlowIntegrationTests(TransactionTestCase):
 class TaskWorkflowTests(TransactionTestCase):
     """Test task workflow scenarios."""
     
-    # Ensure complete database reset between tests
     serialized_rollback = True
 
     def setUp(self):
         """Set up authenticated user."""
+        # Explicitly clean all data to ensure isolation
+        Task.objects.all().delete()
+        Token.objects.all().delete()
+        User.objects.all().delete()
+        
         self.client = APIClient()
         self.user = User.objects.create_user(
             email='workflow@example.com',
