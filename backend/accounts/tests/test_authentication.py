@@ -1,5 +1,6 @@
 """Tests for custom authentication backend."""
 
+import uuid
 from django.test import TestCase
 from django.contrib.auth import get_user_model, authenticate
 from accounts.backends import EmailBackend
@@ -13,29 +14,35 @@ class EmailBackendTests(TestCase):
 
     def setUp(self):
         """Set up test user."""
+        User.objects.all().delete()
         self.backend = EmailBackend()
+        unique_id = uuid.uuid4().hex[:8]
         self.user = User.objects.create_user(
-            email='auth@example.com',
-            username='authuser',
+            email=f'auth_{unique_id}@example.com',
+            username=f'authuser_{unique_id}',
             password='AuthPass123!'
         )
+
+    def tearDown(self):
+        """Clean up after test."""
+        User.objects.all().delete()
 
     def test_authenticate_with_valid_email_and_password(self):
         """Test authentication with correct email and password."""
         user = authenticate(
             request=None,
-            username='auth@example.com',
+            username=self.user.email,
             password='AuthPass123!'
         )
         
         self.assertIsNotNone(user)
-        self.assertEqual(user.email, 'auth@example.com')
+        self.assertEqual(user.email, self.user.email)
 
     def test_authenticate_with_invalid_password(self):
         """Test authentication fails with wrong password."""
         user = authenticate(
             request=None,
-            username='auth@example.com',
+            username=self.user.email,
             password='WrongPassword'
         )
         
@@ -43,9 +50,10 @@ class EmailBackendTests(TestCase):
 
     def test_authenticate_with_nonexistent_email(self):
         """Test authentication fails with non-existent email."""
+        unique_id = uuid.uuid4().hex[:8]
         user = authenticate(
             request=None,
-            username='nonexistent@example.com',
+            username=f'nonexistent_{unique_id}@example.com',
             password='SomePassword'
         )
         
@@ -58,7 +66,7 @@ class EmailBackendTests(TestCase):
         
         user = authenticate(
             request=None,
-            username='auth@example.com',
+            username=self.user.email,
             password='AuthPass123!'
         )
         
