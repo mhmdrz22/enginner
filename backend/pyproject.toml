@@ -1,0 +1,43 @@
+[tool.bandit]
+exclude_dirs = [
+    "tests",
+    "*/tests/*",
+    "*/migrations/*",
+    "venv",
+    ".venv",
+]
+skips = ["B101", "B601"]
+
+[tool.black]
+line-length = 120
+target-version = ['py311']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | migrations
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+skip_glob = ["*/migrations/*"]
+known_django = "django"
+known_drf = "rest_framework"
+sections = ["FUTURE", "STDLIB", "DJANGO", "DRF", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+addopts = "-v --strict-markers --cov=. --cov-report=term-missing --cov-report=html --cov-report=xml"
+testpaths = ["tests"]
