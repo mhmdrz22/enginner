@@ -1,7 +1,8 @@
-"""Tests for custom authentication backend."""
+"""Tests for authentication backend."""
 
+import uuid
 from django.test import TestCase
-from django.contrib.auth import get_user_model, authenticate
+from django.contrib.auth import get_user_model
 from accounts.backends import EmailBackend
 
 
@@ -12,41 +13,42 @@ class EmailBackendTests(TestCase):
     """Test suite for email authentication backend."""
 
     def setUp(self):
-        """Set up test user."""
+        """Set up test user and backend."""
         self.backend = EmailBackend()
+        uid = uuid.uuid4().hex[:8]
         self.user = User.objects.create_user(
-            email='auth@example.com',
-            username='authuser',
-            password='AuthPass123!'
+            email=f'test_{uid}@example.com',
+            username=f'testuser_{uid}',
+            password='TestPass123!'
         )
 
     def test_authenticate_with_valid_email_and_password(self):
         """Test authentication with correct email and password."""
-        user = authenticate(
+        user = self.backend.authenticate(
             request=None,
-            username='auth@example.com',
-            password='AuthPass123!'
+            username=self.user.email,
+            password='TestPass123!'
         )
         
-        self.assertIsNotNone(user)
-        self.assertEqual(user.email, 'auth@example.com')
+        self.assertEqual(user, self.user)
 
     def test_authenticate_with_invalid_password(self):
         """Test authentication fails with wrong password."""
-        user = authenticate(
+        user = self.backend.authenticate(
             request=None,
-            username='auth@example.com',
-            password='WrongPassword'
+            username=self.user.email,
+            password='WrongPassword123!'
         )
         
         self.assertIsNone(user)
 
     def test_authenticate_with_nonexistent_email(self):
         """Test authentication fails with non-existent email."""
-        user = authenticate(
+        uid = uuid.uuid4().hex[:8]
+        user = self.backend.authenticate(
             request=None,
-            username='nonexistent@example.com',
-            password='SomePassword'
+            username=f'nonexistent_{uid}@example.com',
+            password='SomePass123!'
         )
         
         self.assertIsNone(user)
@@ -56,10 +58,10 @@ class EmailBackendTests(TestCase):
         self.user.is_active = False
         self.user.save()
         
-        user = authenticate(
+        user = self.backend.authenticate(
             request=None,
-            username='auth@example.com',
-            password='AuthPass123!'
+            username=self.user.email,
+            password='TestPass123!'
         )
         
         self.assertIsNone(user)
@@ -68,8 +70,7 @@ class EmailBackendTests(TestCase):
         """Test retrieving user by ID."""
         user = self.backend.get_user(self.user.id)
         
-        self.assertIsNotNone(user)
-        self.assertEqual(user.id, self.user.id)
+        self.assertEqual(user, self.user)
 
     def test_get_nonexistent_user(self):
         """Test retrieving non-existent user returns None."""

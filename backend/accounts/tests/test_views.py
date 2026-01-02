@@ -1,5 +1,6 @@
 """Tests for accounts views and API endpoints."""
 
+import uuid
 from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth import get_user_model
@@ -15,21 +16,25 @@ class UserAuthenticationTests(TestCase):
     """Test suite for user authentication endpoints."""
 
     def setUp(self):
-        """Set up test client and user data."""
+        """Set up test client and user data with unique identifiers."""
         self.client = APIClient()
         self.register_url = reverse('accounts:register')
         self.login_url = reverse('accounts:login')
         
+        # Generate unique IDs
+        uid_new = uuid.uuid4().hex[:8]
+        uid_existing = uuid.uuid4().hex[:8]
+        
         self.user_data = {
-            'email': 'test@example.com',
-            'username': 'testuser',
+            'email': f'test_{uid_new}@example.com',
+            'username': f'testuser_{uid_new}',
             'password': 'TestPass123!',
             'password2': 'TestPass123!'
         }
         
         self.existing_user = User.objects.create_user(
-            email='existing@example.com',
-            username='existing',
+            email=f'existing_{uid_existing}@example.com',
+            username=f'existing_{uid_existing}',
             password='ExistingPass123!'
         )
 
@@ -54,9 +59,10 @@ class UserAuthenticationTests(TestCase):
 
     def test_user_registration_with_existing_email(self):
         """Test registration fails with existing email."""
+        uid = uuid.uuid4().hex[:8]
         data = {
-            'email': 'existing@example.com',
-            'username': 'newuser',
+            'email': self.existing_user.email,  # Use existing email
+            'username': f'newuser_{uid}',
             'password': 'Pass123!',
             'password2': 'Pass123!'
         }
@@ -84,9 +90,10 @@ class UserAuthenticationTests(TestCase):
 
     def test_user_registration_missing_fields(self):
         """Test registration fails with missing required fields."""
+        uid = uuid.uuid4().hex[:8]
         response = self.client.post(
             self.register_url,
-            {'email': 'test@example.com'},
+            {'email': f'test_{uid}@example.com'},
             format='json'
         )
         
@@ -95,7 +102,7 @@ class UserAuthenticationTests(TestCase):
     def test_user_login_success(self):
         """Test successful user login."""
         data = {
-            'email': 'existing@example.com',
+            'email': self.existing_user.email,
             'password': 'ExistingPass123!'
         }
         
@@ -112,7 +119,7 @@ class UserAuthenticationTests(TestCase):
     def test_user_login_invalid_credentials(self):
         """Test login fails with invalid credentials."""
         data = {
-            'email': 'existing@example.com',
+            'email': self.existing_user.email,
             'password': 'WrongPassword123!'
         }
         
@@ -126,8 +133,9 @@ class UserAuthenticationTests(TestCase):
 
     def test_user_login_nonexistent_user(self):
         """Test login fails for non-existent user."""
+        uid = uuid.uuid4().hex[:8]
         data = {
-            'email': 'nonexistent@example.com',
+            'email': f'nonexistent_{uid}@example.com',
             'password': 'SomePass123!'
         }
         
@@ -144,11 +152,12 @@ class AuthenticatedUserTests(TestCase):
     """Test suite for authenticated user endpoints."""
 
     def setUp(self):
-        """Set up authenticated client."""
+        """Set up authenticated client with unique user."""
         self.client = APIClient()
+        uid = uuid.uuid4().hex[:8]
         self.user = User.objects.create_user(
-            email='auth@example.com',
-            username='authuser',
+            email=f'auth_{uid}@example.com',
+            username=f'authuser_{uid}',
             password='AuthPass123!'
         )
         self.token = Token.objects.create(user=self.user)
@@ -172,7 +181,8 @@ class AuthenticatedUserTests(TestCase):
 
     def test_update_user_profile(self):
         """Test user can update their profile."""
-        data = {'username': 'updateduser'}
+        uid = uuid.uuid4().hex[:8]
+        data = {'username': f'updateduser_{uid}'}
         response = self.client.patch(
             self.profile_url,
             data,
@@ -181,4 +191,4 @@ class AuthenticatedUserTests(TestCase):
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.user.refresh_from_db()
-        self.assertEqual(self.user.username, 'updateduser')
+        self.assertEqual(self.user.username, f'updateduser_{uid}')
