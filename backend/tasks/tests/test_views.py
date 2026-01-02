@@ -54,6 +54,15 @@ class TaskAPITests(TestCase):
             'due_date': (timezone.now().date() + timedelta(days=7)).isoformat()
         }
 
+    def tearDown(self):
+        """Clean up after each test."""
+        # Explicitly delete all tasks created by test users
+        Task.objects.filter(user__in=[self.user1, self.user2]).delete()
+        # Delete tokens
+        Token.objects.filter(user__in=[self.user1, self.user2]).delete()
+        # Delete users
+        User.objects.filter(id__in=[self.user1.id, self.user2.id]).delete()
+
     def test_list_tasks_authenticated(self):
         """Test authenticated user can list their tasks."""
         # Create tasks for user1
