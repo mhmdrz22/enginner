@@ -17,15 +17,11 @@ User = get_user_model()
 class TaskAPITests(TransactionTestCase):
     """Test suite for Task API endpoints."""
     
-    reset_sequences = True
+    # Ensure complete database reset between tests
+    serialized_rollback = True
 
     def setUp(self):
         """Set up test client and data."""
-        # Clean up any existing data
-        Task.objects.all().delete()
-        Token.objects.all().delete()
-        User.objects.all().delete()
-        
         self.client = APIClient()
         
         # Create users
@@ -55,12 +51,6 @@ class TaskAPITests(TransactionTestCase):
             'priority': 'HIGH',
             'due_date': (timezone.now().date() + timedelta(days=7)).isoformat()
         }
-
-    def tearDown(self):
-        """Clean up after each test."""
-        Task.objects.all().delete()
-        Token.objects.all().delete()
-        User.objects.all().delete()
 
     def test_list_tasks_authenticated(self):
         """Test authenticated user can list their tasks."""
