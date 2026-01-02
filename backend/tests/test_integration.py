@@ -5,6 +5,7 @@ from django.urls import reverse
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from rest_framework import status
+from rest_framework.authtoken.models import Token
 from tasks.models import Task
 
 
@@ -18,7 +19,18 @@ class UserTaskFlowIntegrationTests(TransactionTestCase):
 
     def setUp(self):
         """Set up API client."""
+        # Clean up any existing data
+        Task.objects.all().delete()
+        Token.objects.all().delete()
+        User.objects.all().delete()
+        
         self.client = APIClient()
+
+    def tearDown(self):
+        """Clean up after each test."""
+        Task.objects.all().delete()
+        Token.objects.all().delete()
+        User.objects.all().delete()
 
     def test_complete_user_journey(self):
         """Test full flow: register -> login -> create tasks -> manage tasks."""
@@ -208,6 +220,11 @@ class TaskWorkflowTests(TransactionTestCase):
 
     def setUp(self):
         """Set up authenticated user."""
+        # Clean up any existing data
+        Task.objects.all().delete()
+        Token.objects.all().delete()
+        User.objects.all().delete()
+        
         self.client = APIClient()
         self.user = User.objects.create_user(
             email='workflow@example.com',
@@ -216,6 +233,12 @@ class TaskWorkflowTests(TransactionTestCase):
         )
         self.client.force_authenticate(user=self.user)
         self.tasks_url = reverse('tasks:task-list')
+
+    def tearDown(self):
+        """Clean up after each test."""
+        Task.objects.all().delete()
+        Token.objects.all().delete()
+        User.objects.all().delete()
 
     def test_task_lifecycle(self):
         """Test complete task lifecycle: TODO -> DOING -> DONE."""
