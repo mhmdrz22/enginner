@@ -1,10 +1,31 @@
-FROM python:3.10-slim
+FROM python:3.11-slim
 
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Set work directory
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    postgresql-client \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-COPY . .
+# Install Python dependencies
+COPY requirements.txt /app/
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-CMD ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
+# Copy project
+COPY . /app/
+
+# Collect static files (will be overridden by command in docker-compose)
+RUN python manage.py collectstatic --noinput || true
+
+EXPOSE 8000
+
+# Default command (can be overridden in docker-compose)
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000"]
