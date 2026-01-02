@@ -19,30 +19,8 @@ class TaskAPITests(APITestCase):
 
     def setUp(self):
         """Set up test client and data with unique users."""
-        # DEBUG: Check initial state
-        initial_count = Task.objects.count()
-        print(f"\n[DEBUG setUp] Before Delete: Found {initial_count} tasks in DB.")
-        
-        if initial_count > 0:
-            # Print details of existing tasks
-            tasks_info = []
-            for task in Task.objects.all():
-                user_email = task.user.email if task.user else 'NO_USER'
-                tasks_info.append(f"'{task.title}' (user: {user_email})")
-            print(f"[DEBUG setUp] Existing tasks: {tasks_info}")
-        
         # CRITICAL: Clean up any leftover data from previous tests
-        deleted_count, _ = Task.objects.all().delete()
-        print(f"[DEBUG setUp] Deleted {deleted_count} tasks.")
-        
-        # Verify deletion
-        after_count = Task.objects.count()
-        print(f"[DEBUG setUp] After Delete: Found {after_count} tasks in DB.")
-        
-        if after_count > 0:
-            # ZOMBIE TASKS DETECTED!
-            titles = list(Task.objects.values_list('title', flat=True))
-            print(f"[DEBUG setUp] ⚠️ ZOMBIE TASKS DETECTED: {titles}")
+        Task.objects.all().delete()
         
         # Generate unique IDs for this test instance
         uid1 = uuid.uuid4().hex[:8]
@@ -78,8 +56,6 @@ class TaskAPITests(APITestCase):
 
     def test_list_tasks_authenticated(self):
         """Test authenticated user can list their tasks."""
-        print(f"\n[DEBUG test_list_tasks_authenticated] Starting test...")
-        
         # Create tasks for user1
         Task.objects.create(user=self.user1, title='Task 1')
         Task.objects.create(user=self.user1, title='Task 2')
@@ -87,20 +63,8 @@ class TaskAPITests(APITestCase):
         # Create task for user2 (should not appear)
         Task.objects.create(user=self.user2, title='Task 3')
         
-        # Debug: Check what's in DB before API call
-        total_tasks = Task.objects.count()
-        user1_tasks_count = Task.objects.filter(user=self.user1).count()
-        print(f"[DEBUG test_list_tasks_authenticated] Total tasks in DB: {total_tasks}")
-        print(f"[DEBUG test_list_tasks_authenticated] User1 tasks in DB: {user1_tasks_count}")
-        
         self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
         response = self.client.get(self.list_url)
-        
-        print(f"[DEBUG test_list_tasks_authenticated] API returned {len(response.data)} tasks")
-        if len(response.data) != 2:
-            print(f"[DEBUG test_list_tasks_authenticated] ❌ EXPECTED 2, GOT {len(response.data)}")
-            for task in response.data:
-                print(f"  - Task: {task.get('title', 'N/A')}")
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 2)
@@ -242,26 +206,12 @@ class TaskAPITests(APITestCase):
 
     def test_filter_tasks_by_status(self):
         """Test filtering tasks by status."""
-        print(f"\n[DEBUG test_filter_tasks_by_status] Starting test...")
-        
         Task.objects.create(user=self.user1, title='Todo', status='TODO')
         Task.objects.create(user=self.user1, title='Doing', status='DOING')
         Task.objects.create(user=self.user1, title='Done', status='DONE')
         
-        # Debug: Check what's in DB
-        total_tasks = Task.objects.count()
-        todo_tasks = Task.objects.filter(user=self.user1, status='TODO').count()
-        print(f"[DEBUG test_filter_tasks_by_status] Total tasks in DB: {total_tasks}")
-        print(f"[DEBUG test_filter_tasks_by_status] TODO tasks for user1 in DB: {todo_tasks}")
-        
         self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
         response = self.client.get(f'{self.list_url}?status=TODO')
-        
-        print(f"[DEBUG test_filter_tasks_by_status] API returned {len(response.data)} tasks")
-        if len(response.data) != 1:
-            print(f"[DEBUG test_filter_tasks_by_status] ❌ EXPECTED 1, GOT {len(response.data)}")
-            for task in response.data:
-                print(f"  - Task: {task.get('title', 'N/A')} (status: {task.get('status', 'N/A')})")
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
@@ -269,25 +219,11 @@ class TaskAPITests(APITestCase):
 
     def test_filter_tasks_by_priority(self):
         """Test filtering tasks by priority."""
-        print(f"\n[DEBUG test_filter_tasks_by_priority] Starting test...")
-        
         Task.objects.create(user=self.user1, title='Low', priority='LOW')
         Task.objects.create(user=self.user1, title='High', priority='HIGH')
         
-        # Debug: Check what's in DB
-        total_tasks = Task.objects.count()
-        high_tasks = Task.objects.filter(user=self.user1, priority='HIGH').count()
-        print(f"[DEBUG test_filter_tasks_by_priority] Total tasks in DB: {total_tasks}")
-        print(f"[DEBUG test_filter_tasks_by_priority] HIGH priority tasks for user1 in DB: {high_tasks}")
-        
         self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
         response = self.client.get(f'{self.list_url}?priority=HIGH')
-        
-        print(f"[DEBUG test_filter_tasks_by_priority] API returned {len(response.data)} tasks")
-        if len(response.data) != 1:
-            print(f"[DEBUG test_filter_tasks_by_priority] ❌ EXPECTED 1, GOT {len(response.data)}")
-            for task in response.data:
-                print(f"  - Task: {task.get('title', 'N/A')} (priority: {task.get('priority', 'N/A')})")
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
