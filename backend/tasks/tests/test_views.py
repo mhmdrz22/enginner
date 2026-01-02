@@ -1,6 +1,6 @@
 """Tests for task views and API endpoints."""
 
-from django.test import TransactionTestCase
+from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -14,16 +14,11 @@ from tasks.models import Task
 User = get_user_model()
 
 
-class TaskAPITests(TransactionTestCase):
+class TaskAPITests(TestCase):
     """Test suite for Task API endpoints."""
 
     def setUp(self):
         """Set up test client and data."""
-        # Explicitly clean all data to ensure isolation
-        Task.objects.all().delete()
-        Token.objects.all().delete()
-        User.objects.all().delete()
-        
         self.client = APIClient()
         
         # Create users
