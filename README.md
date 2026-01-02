@@ -4,16 +4,19 @@
 
 [![CI/CD](https://github.com/mhmdrz22/enginner/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/mhmdrz22/enginner/actions)
 [![codecov](https://codecov.io/gh/mhmdrz22/enginner/branch/main/graph/badge.svg)](https://codecov.io/gh/mhmdrz22/enginner)
+[![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
+[![Django](https://img.shields.io/badge/Django-4.2-green.svg)](https://www.djangoproject.com/)
+[![React](https://img.shields.io/badge/React-18-blue.svg)](https://reactjs.org/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
 
-## 📋 Table of Contents
+---
 
-- [Features](#-features)
-- [Tech Stack](#-tech-stack)
-- [Quick Start](#-quick-start)
-- [Project Structure](#-project-structure)
-- [API Documentation](#-api-documentation)
-- [Testing](#-testing)
-- [Deployment](#-deployment)
+## 📚 Documentation
+
+- **[Quick Start Guide](QUICK_START.md)** - راهنمای سریع شروع کار
+- **[CI/CD Troubleshooting](CI_CD_TROUBLESHOOTING.md)** - رفع مشکلات Pipeline
+- **[Security Checklist](SECURITY.md)** - چک‌لیست امنیتی
+- **[Setup Guide](SETUP_GUIDE.md)** - راهنمای نصب کامل
 
 ---
 
@@ -26,15 +29,17 @@
 - ✅ **Priority & Status** - Organize tasks by priority (HIGH/MEDIUM/LOW) and status (TODO/DOING/DONE)
 - ✅ **Responsive UI** - Modern React interface with Tailwind CSS
 
-### Admin Panel (New! 🎉)
+### Admin Panel
 - ✅ **User Overview** - See all users with task statistics
 - ✅ **Email Notifications** - Send emails to selected users
 - ✅ **Async Processing** - Celery + Redis for background email sending
 - ✅ **Markdown Support** - Rich text formatting in email messages
 
-### DevOps
+### DevOps & CI/CD
 - ✅ **Docker** - Fully containerized with docker-compose
 - ✅ **CI/CD** - Automated testing and deployment with GitHub Actions
+- ✅ **Pre-commit Hooks** - Code quality checks before commits
+- ✅ **Security Scanning** - Trivy, Bandit, Safety checks
 - ✅ **API Documentation** - Interactive Swagger/ReDoc docs
 - ✅ **90+ Tests** - Comprehensive test coverage
 
@@ -68,9 +73,9 @@
 ## 🚀 Quick Start
 
 ### Prerequisites
-
-- Docker & Docker Compose installed
+- Docker & Docker Compose
 - Git
+- Make (optional)
 
 ### Installation
 
@@ -82,22 +87,28 @@ cd enginner
 # 2. Copy environment file
 cp .env.example .env
 
-# 3. Start all services
+# 3. Start with Makefile (recommended)
+make setup  # Install pre-commit hooks
+make dev    # Start development environment
+
+# OR with Docker Compose
 docker-compose up --build
+
+# 4. Create superuser
+make superuser
+# OR
+docker-compose exec backend python manage.py createsuperuser
 ```
 
-Wait 2-3 minutes for all services to start, then access:
+### Access Services
 
 - **Frontend:** http://localhost:3000
 - **Backend API:** http://localhost:8000/api/
-- **Swagger Docs:** http://localhost:8000/swagger/
 - **Admin Panel:** http://localhost:8000/admin/
+- **Swagger Docs:** http://localhost:8000/swagger/
+- **ReDoc:** http://localhost:8000/redoc/
 
-### Create Admin User
-
-```bash
-docker-compose exec backend python manage.py createsuperuser
-```
+**For detailed instructions, see [QUICK_START.md](QUICK_START.md)**
 
 ---
 
@@ -105,44 +116,25 @@ docker-compose exec backend python manage.py createsuperuser
 
 ```
 enginner/
-├── backend/
-│   ├── accounts/           # User authentication
-│   │   ├── models.py       # User model
-│   │   ├── views.py        # Auth & admin endpoints
-│   │   ├── tasks.py        # Celery email tasks
-│   │   └── tests/          # 25+ tests
-│   ├── tasks/              # Task management
-│   │   ├── models.py       # Task model
-│   │   ├── views.py        # Task CRUD API
-│   │   └── tests/          # 30+ tests
-│   ├── config/
-│   │   ├── settings.py     # Django settings
-│   │   ├── celery.py       # Celery config
-│   │   └── urls.py         # URL routing + Swagger
-│   ├── tests/              # Integration tests
-│   ├── Dockerfile
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── api/            # API calls (axios)
-│   │   ├── components/     # Reusable components
-│   │   ├── context/        # Auth context
-│   │   ├── pages/          # Page components
-│   │   │   ├── Login.jsx
-│   │   │   ├── Register.jsx
-│   │   │   ├── Dashboard.jsx
-│   │   │   └── AdminPanel.jsx
-│   │   ├── App.jsx         # Routing
-│   │   └── main.jsx        # Entry point
-│   ├── Dockerfile
-│   └── package.json
-├── nginx/                  # Nginx configs
+├── backend/                # Django backend
+│   ├── accounts/          # User authentication
+│   ├── tasks/             # Task management
+│   ├── config/            # Django settings & config
+│   ├── requirements.txt   # Python dependencies
+│   └── Dockerfile         # Backend Docker image
+├── frontend/               # React frontend
+│   ├── src/               # Source code
+│   ├── package.json       # Node dependencies
+│   └── Dockerfile         # Frontend Docker image
 ├── .github/
 │   └── workflows/
-│       └── ci-cd.yml       # CI/CD pipeline
+│       └── ci-cd.yml      # CI/CD pipeline
 ├── docker-compose.yml      # Development setup
+├── docker-compose.test.yml # Testing environment
 ├── docker-compose.prod.yml # Production setup
-└── README.md
+├── Makefile                # Useful commands
+├── .pre-commit-config.yaml # Code quality hooks
+└── README.md               # This file
 ```
 
 ---
@@ -186,14 +178,14 @@ POST   /api/accounts/admin/notify/     - Send email notifications (Admin only)
 ### Run All Tests
 
 ```bash
-# With Docker
+# With Makefile
+make test
+
+# With coverage report
+make test-coverage
+
+# Or directly
 docker-compose exec backend python manage.py test
-
-# Or with pytest
-docker-compose exec backend pytest
-
-# With coverage
-docker-compose exec backend pytest --cov --cov-report=html
 ```
 
 ### Test Coverage
@@ -203,18 +195,9 @@ docker-compose exec backend pytest --cov --cov-report=html
 - **Views/APIs:** 85%+
 - **Total Tests:** 90+
 
-View coverage report:
-```bash
-open backend/htmlcov/index.html
-```
-
-See [TESTING.md](backend/TESTING.md) for detailed testing guide.
-
 ---
 
 ## 🐳 Docker Services
-
-### Services Overview
 
 | Service | Port | Description |
 |---------|------|-------------|
@@ -224,28 +207,59 @@ See [TESTING.md](backend/TESTING.md) for detailed testing guide.
 | **redis** | 6379 | Redis (Celery broker) |
 | **celery_worker** | - | Background task processor |
 
-### Docker Commands
+### Useful Commands
 
 ```bash
 # Start services
-docker-compose up -d
+make up
 
 # View logs
-docker-compose logs -f
-docker-compose logs -f backend
-docker-compose logs -f celery_worker
+make logs
 
 # Stop services
-docker-compose stop
+make down
 
-# Remove everything
-docker-compose down -v
-
-# Rebuild
-docker-compose up --build
+# Clean everything
+make clean
 ```
 
-See [DOCKER_SETUP.md](DOCKER_SETUP.md) for complete Docker guide.
+---
+
+## 🔧 Development
+
+### Makefile Commands
+
+Run `make help` to see all available commands:
+
+```bash
+make help              # Show all commands
+make setup             # Install pre-commit hooks
+make dev               # Start development
+make test              # Run tests
+make test-coverage     # Run tests with coverage
+make migrations        # Create and apply migrations
+make superuser         # Create Django superuser
+make shell-backend     # Open Django shell
+make shell-db          # Open PostgreSQL shell
+make format            # Format code
+make lint              # Run linters
+make security-check    # Run security scans
+make clean             # Clean up
+make prod-check        # Pre-production checklist
+```
+
+### Pre-commit Hooks
+
+```bash
+# Install
+make setup
+
+# Run manually
+pre-commit run --all-files
+
+# Skip for urgent commit
+git commit -m "message" --no-verify
+```
 
 ---
 
@@ -253,32 +267,26 @@ See [DOCKER_SETUP.md](DOCKER_SETUP.md) for complete Docker guide.
 
 ### Environment Variables
 
-Create `.env` file:
+Create `.env` file based on `.env.example`:
 
 ```env
 # Django
 DEBUG=False
 SECRET_KEY=your-secret-key-here
-ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
+ALLOWED_HOSTS=yourdomain.com
 
 # Database
 POSTGRES_DB=taskboard
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=strong-password
-POSTGRES_HOST=db
-POSTGRES_PORT=5432
 
 # Redis/Celery
 CELERY_BROKER_URL=redis://redis:6379/0
-CELERY_RESULT_BACKEND=redis://redis:6379/1
 
 # Email (optional)
 EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USE_TLS=True
 EMAIL_HOST_USER=your-email@gmail.com
 EMAIL_HOST_PASSWORD=your-app-password
-DEFAULT_FROM_EMAIL=noreply@taskboard.com
 ```
 
 ### Deploy to Production
@@ -290,53 +298,28 @@ docker-compose -f docker-compose.prod.yml up -d --build
 # Run migrations
 docker-compose -f docker-compose.prod.yml exec backend python manage.py migrate
 
-# Create superuser
-docker-compose -f docker-compose.prod.yml exec backend python manage.py createsuperuser
-
 # Collect static files
 docker-compose -f docker-compose.prod.yml exec backend python manage.py collectstatic --noinput
+
+# Create superuser
+docker-compose -f docker-compose.prod.yml exec backend python manage.py createsuperuser
 ```
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment guide.
 
 ---
 
-## 📝 Development
+## 🔒 Security
 
-### Local Development (without Docker)
+### Pre-production Checklist
 
-#### Backend
-
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-
-# Setup database
-python manage.py migrate
-
-# Create superuser
-python manage.py createsuperuser
-
-# Run server
-python manage.py runserver
-```
-
-#### Frontend
+Run the complete security checklist:
 
 ```bash
-cd frontend
-npm install
-npm run dev
+make prod-check
 ```
 
-#### Celery Worker
-
-```bash
-cd backend
-celery -A config worker --loglevel=info
-```
+See [SECURITY.md](SECURITY.md) for complete security guidelines.
 
 ---
 
@@ -344,13 +327,17 @@ celery -A config worker --loglevel=info
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+3. Make your changes
+4. Run tests and checks (`make prod-check`)
+5. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+**Pull Request Template** will guide you through the process.
 
 ---
 
-## 📄 License
+## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
@@ -358,7 +345,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👥 Authors
 
-- **Your Name** - [mhmdrz22](https://github.com/mhmdrz22)
+- **Mohammad Reza Daghanbari** - [mhmdrz22](https://github.com/mhmdrz22)
 
 ---
 
@@ -372,9 +359,20 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- 📧 Email: support@taskboard.com
-- 🐛 Issues: [GitHub Issues](https://github.com/mhmdrz22/enginner/issues)
-- 📖 Documentation: [Wiki](https://github.com/mhmdrz22/enginner/wiki)
+- 🐛 **Issues:** [GitHub Issues](https://github.com/mhmdrz22/enginner/issues)
+- 📚 **Documentation:** [Wiki](https://github.com/mhmdrz22/enginner/wiki)
+- 🚀 **Quick Start:** [QUICK_START.md](QUICK_START.md)
+
+---
+
+## 📈 Project Status
+
+- ✅ Development environment ready
+- ✅ CI/CD pipeline configured
+- ✅ Pre-commit hooks active
+- ✅ Security scanning enabled
+- ✅ Tests with 85%+ coverage
+- ⏳ Production deployment pending
 
 ---
 
