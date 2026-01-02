@@ -16,6 +16,9 @@ class UserTaskFlowIntegrationTests(APITestCase):
 
     def setUp(self):
         """Set up for integration tests."""
+        # CRITICAL: Clean up any leftover data from previous tests
+        Task.objects.all().delete()
+        
         # Generate unique identifiers for this test
         self.unique_id = uuid.uuid4().hex[:8]
 
@@ -211,6 +214,9 @@ class TaskWorkflowTests(APITestCase):
 
     def setUp(self):
         """Set up authenticated user with unique credentials."""
+        # CRITICAL: Clean up any leftover data from previous tests
+        Task.objects.all().delete()
+        
         unique_id = uuid.uuid4().hex[:8]
         self.user = User.objects.create_user(
             email=f'workflow_{unique_id}@example.com',
