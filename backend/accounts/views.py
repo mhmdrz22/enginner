@@ -49,13 +49,13 @@ class LoginView(APIView):
         except User.DoesNotExist:
             return Response(
                 {'error': 'Invalid credentials'},
-                status=status.HTTP_401_UNAUTHORIZED
+                status=status.HTTP_400_BAD_REQUEST
             )
 
         if not user.check_password(password):
             return Response(
                 {'error': 'Invalid credentials'},
-                status=status.HTTP_401_UNAUTHORIZED
+                status=status.HTTP_400_BAD_REQUEST
             )
 
         if not user.is_active:
