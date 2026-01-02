@@ -1,6 +1,6 @@
 """Integration tests for complete user flows."""
 
-from django.test import TransactionTestCase
+from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
@@ -12,16 +12,11 @@ from tasks.models import Task
 User = get_user_model()
 
 
-class UserTaskFlowIntegrationTests(TransactionTestCase):
+class UserTaskFlowIntegrationTests(TestCase):
     """Test complete user journey from registration to task management."""
 
     def setUp(self):
         """Set up API client."""
-        # Explicitly clean all data to ensure isolation
-        Task.objects.all().delete()
-        Token.objects.all().delete()
-        User.objects.all().delete()
-        
         self.client = APIClient()
 
     def test_complete_user_journey(self):
@@ -205,16 +200,11 @@ class UserTaskFlowIntegrationTests(TransactionTestCase):
         self.assertEqual(len(list_response.data), 0)
 
 
-class TaskWorkflowTests(TransactionTestCase):
+class TaskWorkflowTests(TestCase):
     """Test task workflow scenarios."""
 
     def setUp(self):
         """Set up authenticated user."""
-        # Explicitly clean all data to ensure isolation
-        Task.objects.all().delete()
-        Token.objects.all().delete()
-        User.objects.all().delete()
-        
         self.client = APIClient()
         self.user = User.objects.create_user(
             email='workflow@example.com',
