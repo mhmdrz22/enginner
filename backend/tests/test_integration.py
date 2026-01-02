@@ -37,7 +37,8 @@ class UserTaskFlowIntegrationTests(TestCase):
         )
         
         self.assertEqual(register_response.status_code, status.HTTP_201_CREATED)
-        self.assertIn('email', register_response.data)
+        self.assertIn('user', register_response.data)
+        self.assertIn('email', register_response.data['user'])
         
         # Step 2: Login
         login_url = reverse('accounts:login')
@@ -131,6 +132,10 @@ class UserTaskFlowIntegrationTests(TestCase):
 
     def test_user_isolation(self):
         """Test that users can only see and manage their own tasks."""
+        
+        # Clear any existing data
+        Task.objects.all().delete()
+        User.objects.all().delete()
         
         # Create two users
         user1_data = {
@@ -257,6 +262,9 @@ class TaskWorkflowTests(TestCase):
     def test_bulk_task_creation(self):
         """Test creating multiple tasks at once."""
         
+        # Clear existing tasks
+        Task.objects.all().delete()
+        
         task_titles = [
             'Task 1',
             'Task 2',
@@ -279,6 +287,9 @@ class TaskWorkflowTests(TestCase):
 
     def test_priority_based_workflow(self):
         """Test tasks with different priorities."""
+        
+        # Clear existing tasks
+        Task.objects.all().delete()
         
         # Create tasks with different priorities
         Task.objects.create(
