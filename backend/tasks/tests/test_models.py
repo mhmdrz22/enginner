@@ -1,6 +1,8 @@
 """Tests for Task model."""
 
-from django.test import TransactionTestCase
+import time
+import uuid
+from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
@@ -10,18 +12,20 @@ from tasks.models import Task
 User = get_user_model()
 
 
-class TaskModelTests(TransactionTestCase):
+class TaskModelTests(TestCase):
     """Test suite for Task model."""
 
     def setUp(self):
         """Set up test data."""
-        # Explicitly clean all data to ensure isolation
+        # Clean database
         Task.objects.all().delete()
         User.objects.all().delete()
         
+        # Create unique user
+        unique_id = uuid.uuid4().hex[:8]
         self.user = User.objects.create_user(
-            email='taskuser@example.com',
-            username='taskuser',
+            email=f'taskuser_{unique_id}@example.com',
+            username=f'taskuser_{unique_id}',
             password='TaskPass123!'
         )
         
@@ -32,6 +36,11 @@ class TaskModelTests(TransactionTestCase):
             'status': 'TODO',
             'priority': 'MEDIUM'
         }
+
+    def tearDown(self):
+        """Clean up after test."""
+        Task.objects.all().delete()
+        User.objects.all().delete()
 
     def test_create_task_with_all_fields(self):
         """Test creating task with all fields."""
@@ -115,7 +124,6 @@ class TaskModelTests(TransactionTestCase):
         old_updated_at = task.updated_at
         
         # Small delay to ensure time difference
-        import time
         time.sleep(0.1)
         
         task.title = 'Updated Title'
@@ -131,12 +139,15 @@ class TaskModelTests(TransactionTestCase):
             title='First Task'
         )
         
+        # Small delay to ensure different timestamps
+        time.sleep(0.01)
+        
         task2 = Task.objects.create(
             user=self.user,
             title='Second Task'
         )
         
-        tasks = Task.objects.all()
+        tasks = Task.objects.filter(user=self.user)
         self.assertEqual(tasks[0], task2)  # Most recent first
         self.assertEqual(tasks[1], task1)
 
