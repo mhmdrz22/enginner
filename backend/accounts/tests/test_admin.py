@@ -1,3 +1,4 @@
+import uuid
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
@@ -14,17 +15,21 @@ class AdminOverviewTests(TestCase):
     def setUp(self):
         self.client = APIClient()
         
+        # Generate unique IDs
+        uid_user = uuid.uuid4().hex[:8]
+        uid_admin = uuid.uuid4().hex[:8]
+        
         # Create regular user
         self.user = User.objects.create_user(
-            email='user@example.com',
-            username='user',
+            email=f'user_{uid_user}@example.com',
+            username=f'user_{uid_user}',
             password='UserPass123!'
         )
         
         # Create admin user
         self.admin = User.objects.create_superuser(
-            email='admin@example.com',
-            username='admin',
+            email=f'admin_{uid_admin}@example.com',
+            username=f'admin_{uid_admin}',
             password='AdminPass123!'
         )
         
@@ -67,7 +72,7 @@ class AdminOverviewTests(TestCase):
         response = self.client.get('/api/accounts/admin/overview/')
         
         users = response.data['users']
-        user_data = next((u for u in users if u['email'] == 'user@example.com'), None)
+        user_data = next((u for u in users if u['email'] == self.user.email), None)
         
         self.assertIsNotNone(user_data)
         self.assertEqual(user_data['total_tasks'], 2)
@@ -95,17 +100,21 @@ class AdminNotifyTests(TestCase):
     def setUp(self):
         self.client = APIClient()
         
+        # Generate unique IDs
+        uid_user = uuid.uuid4().hex[:8]
+        uid_admin = uuid.uuid4().hex[:8]
+        
         # Create regular user
         self.user = User.objects.create_user(
-            email='user@example.com',
-            username='user',
+            email=f'user_{uid_user}@example.com',
+            username=f'user_{uid_user}',
             password='UserPass123!'
         )
         
         # Create admin user
         self.admin = User.objects.create_superuser(
-            email='admin@example.com',
-            username='admin',
+            email=f'admin_{uid_admin}@example.com',
+            username=f'admin_{uid_admin}',
             password='AdminPass123!'
         )
 
@@ -117,8 +126,9 @@ class AdminNotifyTests(TestCase):
     def test_notify_requires_admin(self):
         """Test that regular user cannot send notifications."""
         self.client.force_authenticate(user=self.user)
+        uid = uuid.uuid4().hex[:8]
         response = self.client.post('/api/accounts/admin/notify/', {
-            'recipients': ['test@example.com'],
+            'recipients': [f'test_{uid}@example.com'],
             'message': 'Test message'
         })
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
@@ -129,8 +139,10 @@ class AdminNotifyTests(TestCase):
         mock_task.return_value.id = 'test-task-id'
         
         self.client.force_authenticate(user=self.admin)
+        uid1 = uuid.uuid4().hex[:8]
+        uid2 = uuid.uuid4().hex[:8]
         response = self.client.post('/api/accounts/admin/notify/', {
-            'recipients': ['user1@example.com', 'user2@example.com'],
+            'recipients': [f'user1_{uid1}@example.com', f'user2_{uid2}@example.com'],
             'subject': 'Test Subject',
             'message': 'Test message'
         })
@@ -156,8 +168,9 @@ class AdminNotifyTests(TestCase):
     def test_notify_requires_message(self):
         """Test that message is required."""
         self.client.force_authenticate(user=self.admin)
+        uid = uuid.uuid4().hex[:8]
         response = self.client.post('/api/accounts/admin/notify/', {
-            'recipients': ['test@example.com']
+            'recipients': [f'test_{uid}@example.com']
         })
         
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -182,7 +195,9 @@ class CeleryTaskTests(TestCase):
         """Test successful email sending task."""
         from accounts.tasks import send_email_task
         
-        recipients = ['user1@example.com', 'user2@example.com']
+        uid1 = uuid.uuid4().hex[:8]
+        uid2 = uuid.uuid4().hex[:8]
+        recipients = [f'user1_{uid1}@example.com', f'user2_{uid2}@example.com']
         subject = 'Test Subject'
         message = 'Test message'
         
@@ -201,7 +216,9 @@ class CeleryTaskTests(TestCase):
         # First call succeeds, second fails
         mock_send_mail.side_effect = [None, Exception('Email failed')]
         
-        recipients = ['success@example.com', 'fail@example.com']
+        uid1 = uuid.uuid4().hex[:8]
+        uid2 = uuid.uuid4().hex[:8]
+        recipients = [f'success_{uid1}@example.com', f'fail_{uid2}@example.com']
         subject = 'Test Subject'
         message = 'Test message'
         
@@ -209,4 +226,4 @@ class CeleryTaskTests(TestCase):
         
         self.assertEqual(result['sent_count'], 1)
         self.assertEqual(result['failed_count'], 1)
-        self.assertIn('fail@example.com', result['failed_emails'])
+        self.assertIn(f'fail_{uid2}@example.com', result['failed_emails'])
