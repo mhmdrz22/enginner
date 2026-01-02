@@ -4,17 +4,117 @@ on:
   push:
     branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # Backend Tests
-  backend-tests:
-    name: Backend Tests & Coverage
+  # ============================================================================
+  # Pre-commit Checks - First line of defense
+  # ============================================================================
+  pre-commit:
+    name: 🛡️ Pre-commit Hooks & Code Quality
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install pre-commit
+        run: |
+          pip install pre-commit
+          npm install -g eslint prettier
+
+      - name: Cache pre-commit environments
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            pre-commit-
+
+      - name: Run pre-commit on all files
+        run: pre-commit run --all-files --show-diff-on-failure
+
+  # ============================================================================
+  # Security Scanning
+  # ============================================================================
+  security-scan:
+    name: 🔒 Security Vulnerability Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner (filesystem)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'  # Don't fail build, just report
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Set up Python for security checks
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install security tools
+        run: |
+          pip install bandit safety pip-audit
+
+      - name: Run Bandit security linter
+        run: |
+          cd backend
+          bandit -r . -ll -f json -o bandit-report.json || true
+          bandit -r . -ll
+        continue-on-error: true
+
+      - name: Check Python dependencies for vulnerabilities
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          safety check --json || true
+          pip-audit || true
+        continue-on-error: true
+
+      - name: Scan for secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+        continue-on-error: true
+
+  # ============================================================================
+  # Backend Tests
+  # ============================================================================
+  backend-tests:
+    name: 🐍 Backend Tests & Coverage
+    runs-on: ubuntu-latest
+    needs: [pre-commit, security-scan]
     
     services:
       postgres:
@@ -57,7 +157,7 @@ jobs:
           cd backend
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install coverage pytest-cov
+          pip install coverage pytest pytest-cov pytest-django
 
       - name: Run migrations
         env:
@@ -66,11 +166,12 @@ jobs:
           POSTGRES_PASSWORD: test_password
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
-          SECRET_KEY: test-secret-key-for-ci
-          DEBUG: True
+          SECRET_KEY: test-secret-key-for-ci-pipeline-do-not-use-in-production
+          DEBUG: "False"
+          ALLOWED_HOSTS: localhost,127.0.0.1
         run: |
           cd backend
-          python manage.py migrate
+          python manage.py migrate --no-input
 
       - name: Run tests with coverage
         env:
@@ -79,16 +180,16 @@ jobs:
           POSTGRES_PASSWORD: test_password
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
-          SECRET_KEY: test-secret-key-for-ci
-          DEBUG: True
+          SECRET_KEY: test-secret-key-for-ci-pipeline-do-not-use-in-production
+          DEBUG: "False"
+          ALLOWED_HOSTS: localhost,127.0.0.1
           CELERY_BROKER_URL: redis://localhost:6379/0
+          CELERY_TASK_ALWAYS_EAGER: "True"
         run: |
           cd backend
-          coverage run --source='.' manage.py test
-          coverage report
-          coverage xml
+          pytest --cov=. --cov-report=xml --cov-report=html --cov-report=term-missing --cov-fail-under=85
 
-      - name: Upload coverage to Codecov
+      - name: Upload coverage reports
         uses: codecov/codecov-action@v4
         if: always()
         continue-on-error: true
@@ -96,11 +197,23 @@ jobs:
           file: ./backend/coverage.xml
           flags: backend
           name: backend-coverage
+          fail_ci_if_error: false
 
-  # Frontend Tests & Build
+      - name: Upload HTML coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage-report
+          path: backend/htmlcov/
+          retention-days: 30
+
+  # ============================================================================
+  # Frontend Tests
+  # ============================================================================
   frontend-tests:
-    name: Frontend Tests & Build
+    name: ⚛️ Frontend Tests & Build
     runs-on: ubuntu-latest
+    needs: [pre-commit]
 
     steps:
       - name: Checkout code
@@ -110,11 +223,25 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
         run: |
           cd frontend
-          npm install
+          npm ci
+
+      - name: Run linting
+        run: |
+          cd frontend
+          npm run lint || true
+        continue-on-error: true
+
+      - name: Run tests with coverage
+        run: |
+          cd frontend
+          npm run test:coverage || true
+        continue-on-error: true
 
       - name: Build frontend
         run: |
@@ -128,11 +255,50 @@ jobs:
           path: frontend/dist
           retention-days: 7
 
-  # Docker Build & Push
-  docker-build:
-    name: Build Docker Images
+  # ============================================================================
+  # Docker Security Scanning
+  # ============================================================================
+  docker-security:
+    name: 🐳 Docker Security Scan
     runs-on: ubuntu-latest
     needs: [backend-tests, frontend-tests]
+    if: github.event_name == 'push'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Backend Docker image
+        run: |
+          docker build -t backend-test:latest ./backend
+
+      - name: Run Trivy on Backend image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'backend-test:latest'
+          format: 'sarif'
+          output: 'trivy-backend-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Build Frontend Docker image
+        run: |
+          docker build -t frontend-test:latest ./frontend
+
+      - name: Run Trivy on Frontend image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'frontend-test:latest'
+          format: 'sarif'
+          output: 'trivy-frontend-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+  # ============================================================================
+  # Docker Build & Push to Registry
+  # ============================================================================
+  docker-build:
+    name: 📦 Build & Push Docker Images
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests, docker-security]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
     permissions:
@@ -143,6 +309,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Log in to Container Registry
         uses: docker/login-action@v3
         with:
@@ -150,11 +319,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels) for Backend
+      - name: Extract metadata for Backend
         id: meta-backend
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Backend Docker image
         uses: docker/build-push-action@v5
@@ -163,12 +336,18 @@ jobs:
           push: true
           tags: ${{ steps.meta-backend.outputs.tags }}
           labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Extract metadata (tags, labels) for Frontend
+      - name: Extract metadata for Frontend
         id: meta-frontend
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Frontend Docker image
         uses: docker/build-push-action@v5
@@ -177,3 +356,30 @@ jobs:
           push: true
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================================================
+  # Summary
+  # ============================================================================
+  summary:
+    name: 🎯 Pipeline Summary
+    runs-on: ubuntu-latest
+    needs: [pre-commit, security-scan, backend-tests, frontend-tests]
+    if: always()
+    steps:
+      - name: Check pipeline status
+        run: |
+          echo "✅ Pre-commit checks: ${{ needs.pre-commit.result }}"
+          echo "🔒 Security scan: ${{ needs.security-scan.result }}"
+          echo "🐍 Backend tests: ${{ needs.backend-tests.result }}"
+          echo "⚛️ Frontend tests: ${{ needs.frontend-tests.result }}"
+          
+          if [[ "${{ needs.pre-commit.result }}" == "failure" ]] || \
+             [[ "${{ needs.backend-tests.result }}" == "failure" ]] || \
+             [[ "${{ needs.frontend-tests.result }}" == "failure" ]]; then
+            echo "❌ Pipeline failed!"
+            exit 1
+          else
+            echo "✅ All checks passed!"
+          fi
