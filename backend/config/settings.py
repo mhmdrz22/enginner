@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -61,17 +62,29 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-# Database
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get('POSTGRES_DB', 'taskboard'),
-        "USER": os.environ.get('POSTGRES_USER', 'postgres'),
-        "PASSWORD": os.environ.get('POSTGRES_PASSWORD', 'postgres'),
-        "HOST": os.environ.get('POSTGRES_HOST', 'db'),
-        "PORT": os.environ.get('POSTGRES_PORT', '5432'),
+# Database Configuration
+# Support both DATABASE_URL (for CI/CD) and individual env vars (for Docker)
+if 'DATABASE_URL' in os.environ:
+    # Parse DATABASE_URL for CI/CD environments
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=os.environ['DATABASE_URL'],
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
     }
-}
+else:
+    # Use individual environment variables for Docker Compose
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ.get('POSTGRES_DB', 'taskboard'),
+            "USER": os.environ.get('POSTGRES_USER', 'postgres'),
+            "PASSWORD": os.environ.get('POSTGRES_PASSWORD', 'postgres'),
+            "HOST": os.environ.get('POSTGRES_HOST', 'db'),
+            "PORT": os.environ.get('POSTGRES_PORT', '5432'),
+        }
+    }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -148,13 +161,18 @@ if not DEBUG:
 
 CORS_ALLOW_CREDENTIALS = True
 
-# Celery Configuration (Optional for now)
+# Celery Configuration
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://redis:6379/0')
 CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://redis:6379/1')
 CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'Asia/Tehran'
+
+# For testing: execute tasks synchronously
+if os.environ.get('CELERY_TASK_ALWAYS_EAGER') == 'True':
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
 
 # Email Configuration
 EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
