@@ -1,0 +1,11 @@
+{
+  "platform": "docker",
+  "app": "enginner-taskboard",
+  "port": 8000,
+  "disks": [
+    {
+      "name": "data",
+      "mountTo": "/app/data"
+    }
+  ]
+}
