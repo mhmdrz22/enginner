@@ -5,6 +5,7 @@ from django.test import TransactionTestCase
 from django.contrib.auth import get_user_model
 from django.db import connection
 from django.test.utils import override_settings
+from rest_framework.authtoken.models import Token
 from tasks.models import Task
 
 
@@ -18,6 +19,11 @@ class PerformanceTests(TransactionTestCase):
 
     def setUp(self):
         """Set up test user."""
+        # Explicitly clean all data to ensure isolation
+        Task.objects.all().delete()
+        Token.objects.all().delete()
+        User.objects.all().delete()
+        
         self.user = User.objects.create_user(
             email='perf@example.com',
             username='perfuser',
@@ -144,6 +150,13 @@ class ScalabilityTests(TransactionTestCase):
     """Test scalability with multiple users."""
     
     serialized_rollback = True
+
+    def setUp(self):
+        """Set up clean database."""
+        # Explicitly clean all data to ensure isolation
+        Task.objects.all().delete()
+        Token.objects.all().delete()
+        User.objects.all().delete()
 
     def test_multiple_users_performance(self):
         """Test system performance with multiple users."""
