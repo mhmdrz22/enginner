@@ -1,6 +1,8 @@
 """Tests for Task model."""
 
-from django.test import TransactionTestCase
+import time
+import uuid
+from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
@@ -10,18 +12,15 @@ from tasks.models import Task
 User = get_user_model()
 
 
-class TaskModelTests(TransactionTestCase):
+class TaskModelTests(TestCase):
     """Test suite for Task model."""
 
     def setUp(self):
-        """Set up test data."""
-        # Explicitly clean all data to ensure isolation
-        Task.objects.all().delete()
-        User.objects.all().delete()
-        
+        """Set up test data with unique user."""
+        unique_id = uuid.uuid4().hex[:8]
         self.user = User.objects.create_user(
-            email='taskuser@example.com',
-            username='taskuser',
+            email=f'taskuser_{unique_id}@example.com',
+            username=f'taskuser_{unique_id}',
             password='TaskPass123!'
         )
         
@@ -57,10 +56,10 @@ class TaskModelTests(TransactionTestCase):
         )
         
         self.assertEqual(task.title, 'Minimal Task')
-        self.assertEqual(task.status, 'TODO')  # Default
-        self.assertEqual(task.priority, 'MEDIUM')  # Default
-        self.assertEqual(task.description, '')  # Blank default
-        self.assertIsNone(task.due_date)  # Nullable
+        self.assertEqual(task.status, 'TODO')
+        self.assertEqual(task.priority, 'MEDIUM')
+        self.assertEqual(task.description, '')
+        self.assertIsNone(task.due_date)
 
     def test_task_status_choices(self):
         """Test all valid task status choices."""
@@ -115,7 +114,6 @@ class TaskModelTests(TransactionTestCase):
         old_updated_at = task.updated_at
         
         # Small delay to ensure time difference
-        import time
         time.sleep(0.1)
         
         task.title = 'Updated Title'
@@ -131,13 +129,16 @@ class TaskModelTests(TransactionTestCase):
             title='First Task'
         )
         
+        # Small delay to ensure different timestamps
+        time.sleep(0.01)
+        
         task2 = Task.objects.create(
             user=self.user,
             title='Second Task'
         )
         
-        tasks = Task.objects.all()
-        self.assertEqual(tasks[0], task2)  # Most recent first
+        tasks = Task.objects.filter(user=self.user)
+        self.assertEqual(tasks[0], task2)
         self.assertEqual(tasks[1], task1)
 
     def test_task_user_relationship(self):

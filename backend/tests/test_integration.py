@@ -1,5 +1,6 @@
 """Integration tests for complete user flows."""
 
+import uuid
 from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth import get_user_model
@@ -16,17 +17,22 @@ class UserTaskFlowIntegrationTests(TestCase):
     """Test complete user journey from registration to task management."""
 
     def setUp(self):
-        """Set up API client."""
+        """Set up API client and clean database."""
         self.client = APIClient()
+        # Generate unique identifiers for this test
+        self.unique_id = uuid.uuid4().hex[:8]
 
     def test_complete_user_journey(self):
         """Test full flow: register -> login -> create tasks -> manage tasks."""
         
-        # Step 1: Register new user
+        # Step 1: Register new user with unique credentials
         register_url = reverse('accounts:register')
+        email = f'journey_{self.unique_id}@example.com'
+        username = f'journeyuser_{self.unique_id}'
+        
         register_data = {
-            'email': 'journey@example.com',
-            'username': 'journeyuser',
+            'email': email,
+            'username': username,
             'password': 'JourneyPass123!',
             'password2': 'JourneyPass123!'
         }
@@ -44,7 +50,7 @@ class UserTaskFlowIntegrationTests(TestCase):
         # Step 2: Login
         login_url = reverse('accounts:login')
         login_data = {
-            'email': 'journey@example.com',
+            'email': email,
             'password': 'JourneyPass123!'
         }
         
@@ -129,22 +135,25 @@ class UserTaskFlowIntegrationTests(TestCase):
         profile_response = self.client.get(profile_url)
         
         self.assertEqual(profile_response.status_code, status.HTTP_200_OK)
-        self.assertEqual(profile_response.data['email'], 'journey@example.com')
+        self.assertEqual(profile_response.data['email'], email)
 
     def test_user_isolation(self):
         """Test that users can only see and manage their own tasks."""
         
-        # Create two users
+        # Create two users with unique credentials
+        uid1 = uuid.uuid4().hex[:8]
+        uid2 = uuid.uuid4().hex[:8]
+        
         user1_data = {
-            'email': 'user1@example.com',
-            'username': 'user1',
+            'email': f'user1_{uid1}@example.com',
+            'username': f'user1_{uid1}',
             'password': 'User1Pass123!',
             'password2': 'User1Pass123!'
         }
         
         user2_data = {
-            'email': 'user2@example.com',
-            'username': 'user2',
+            'email': f'user2_{uid2}@example.com',
+            'username': f'user2_{uid2}',
             'password': 'User2Pass123!',
             'password2': 'User2Pass123!'
         }
@@ -159,7 +168,7 @@ class UserTaskFlowIntegrationTests(TestCase):
         login_url = reverse('accounts:login')
         login1_response = self.client.post(
             login_url,
-            {'email': 'user1@example.com', 'password': 'User1Pass123!'},
+            {'email': user1_data['email'], 'password': 'User1Pass123!'},
             format='json'
         )
         
@@ -180,7 +189,7 @@ class UserTaskFlowIntegrationTests(TestCase):
         # Login as user2
         login2_response = self.client.post(
             login_url,
-            {'email': 'user2@example.com', 'password': 'User2Pass123!'},
+            {'email': user2_data['email'], 'password': 'User2Pass123!'},
             format='json'
         )
         
@@ -204,11 +213,12 @@ class TaskWorkflowTests(TestCase):
     """Test task workflow scenarios."""
 
     def setUp(self):
-        """Set up authenticated user."""
+        """Set up authenticated user with unique credentials."""
         self.client = APIClient()
+        unique_id = uuid.uuid4().hex[:8]
         self.user = User.objects.create_user(
-            email='workflow@example.com',
-            username='workflow',
+            email=f'workflow_{unique_id}@example.com',
+            username=f'workflow_{unique_id}',
             password='WorkflowPass123!'
         )
         self.client.force_authenticate(user=self.user)
