@@ -19,6 +19,9 @@ class TaskAPITests(APITestCase):
 
     def setUp(self):
         """Set up test client and data with unique users."""
+        # CRITICAL: Clean up any leftover data from previous tests
+        Task.objects.all().delete()
+        
         # Generate unique IDs for this test instance
         uid1 = uuid.uuid4().hex[:8]
         uid2 = uuid.uuid4().hex[:8]
