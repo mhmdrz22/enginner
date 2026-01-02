@@ -1,25 +1,29 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, filters
 from rest_framework.permissions import IsAuthenticated
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import Task
 from .serializers import TaskSerializer
 
 
-@extend_schema_view(
-    list=extend_schema(summary="List my tasks", description="Returns tasks belonging to the authenticated user."),
-    create=extend_schema(summary="Create a new task"),
-    retrieve=extend_schema(summary="Get a single task by ID"),
-    update=extend_schema(summary="Replace a task"),
-    partial_update=extend_schema(summary="Partially update a task"),
-    destroy=extend_schema(summary="Delete a task"),
-)
 class TaskViewSet(viewsets.ModelViewSet):
+    """ViewSet for Task CRUD operations.
+    
+    Automatically filtered to show only tasks belonging to the authenticated user.
+    Supports filtering by status and search by title/description.
+    """
     permission_classes = [IsAuthenticated]
     serializer_class = TaskSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['status', 'priority']
+    search_fields = ['title', 'description']
+    ordering_fields = ['created_at', 'due_date', 'priority']
+    ordering = ['-created_at']
 
     def get_queryset(self):
-        return Task.objects.filter(user=self.request.user).order_by("-created_at")
+        """Return only tasks belonging to the current user."""
+        return Task.objects.filter(user=self.request.user).select_related('user')
 
     def perform_create(self, serializer):
+        """Automatically set the user when creating a task."""
         serializer.save(user=self.request.user)
