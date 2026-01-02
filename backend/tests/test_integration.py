@@ -1,29 +1,23 @@
 """Integration tests for complete user flows."""
 
 import uuid
-from django.test import TransactionTestCase
 from django.urls import reverse
 from django.contrib.auth import get_user_model
-from rest_framework.test import APIClient
+from rest_framework.test import APITestCase
 from rest_framework import status
-from rest_framework.authtoken.models import Token
 from tasks.models import Task
 
 
 User = get_user_model()
 
 
-class UserTaskFlowIntegrationTests(TransactionTestCase):
+class UserTaskFlowIntegrationTests(APITestCase):
     """Test complete user journey from registration to task management."""
-    
-    reset_sequences = True
 
     def setUp(self):
-        """Set up API client and clean database."""
-        self.client = APIClient()
+        """Set up for integration tests."""
         # Generate unique identifiers for this test
         self.unique_id = uuid.uuid4().hex[:8]
-        self.created_users = []
 
     def test_complete_user_journey(self):
         """Test full flow: register -> login -> create tasks -> manage tasks."""
@@ -49,10 +43,6 @@ class UserTaskFlowIntegrationTests(TransactionTestCase):
         self.assertEqual(register_response.status_code, status.HTTP_201_CREATED)
         self.assertIn('user', register_response.data)
         self.assertIn('email', register_response.data['user'])
-        
-        # Track created user
-        user = User.objects.get(email=email)
-        self.created_users.append(user)
         
         # Step 2: Login
         login_url = reverse('accounts:login')
@@ -171,11 +161,6 @@ class UserTaskFlowIntegrationTests(TransactionTestCase):
         self.client.post(register_url, user1_data, format='json')
         self.client.post(register_url, user2_data, format='json')
         
-        # Track created users
-        user1 = User.objects.get(email=user1_data['email'])
-        user2 = User.objects.get(email=user2_data['email'])
-        self.created_users.extend([user1, user2])
-        
         # Login as user1
         login_url = reverse('accounts:login')
         login1_response = self.client.post(
@@ -221,14 +206,11 @@ class UserTaskFlowIntegrationTests(TransactionTestCase):
         self.assertEqual(len(list_response.data), 0)
 
 
-class TaskWorkflowTests(TransactionTestCase):
+class TaskWorkflowTests(APITestCase):
     """Test task workflow scenarios."""
-    
-    reset_sequences = True
 
     def setUp(self):
         """Set up authenticated user with unique credentials."""
-        self.client = APIClient()
         unique_id = uuid.uuid4().hex[:8]
         self.user = User.objects.create_user(
             email=f'workflow_{unique_id}@example.com',
