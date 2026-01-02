@@ -7,3 +7,4 @@ gunicorn==21.2.0
 drf-yasg==1.21.7
 celery==5.3.4
 redis==5.0.1
+django-filter==23.3
