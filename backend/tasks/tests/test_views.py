@@ -1,12 +1,11 @@
 """Tests for task views and API endpoints."""
 
 import uuid
-from django.test import TransactionTestCase
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
-from rest_framework.test import APIClient
+from rest_framework.test import APITestCase
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from tasks.models import Task
@@ -15,15 +14,11 @@ from tasks.models import Task
 User = get_user_model()
 
 
-class TaskAPITests(TransactionTestCase):
+class TaskAPITests(APITestCase):
     """Test suite for Task API endpoints."""
-    
-    reset_sequences = True
 
     def setUp(self):
         """Set up test client and data with unique users."""
-        self.client = APIClient()
-        
         # Generate unique IDs for this test instance
         uid1 = uuid.uuid4().hex[:8]
         uid2 = uuid.uuid4().hex[:8]
