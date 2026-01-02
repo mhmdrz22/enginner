@@ -21,6 +21,15 @@ class UserTaskFlowIntegrationTests(TestCase):
         self.client = APIClient()
         # Generate unique identifiers for this test
         self.unique_id = uuid.uuid4().hex[:8]
+        self.created_users = []
+
+    def tearDown(self):
+        """Clean up after each test."""
+        # Delete all tasks for created users
+        if self.created_users:
+            Task.objects.filter(user__in=self.created_users).delete()
+            Token.objects.filter(user__in=self.created_users).delete()
+            User.objects.filter(id__in=[u.id for u in self.created_users]).delete()
 
     def test_complete_user_journey(self):
         """Test full flow: register -> login -> create tasks -> manage tasks."""
@@ -46,6 +55,10 @@ class UserTaskFlowIntegrationTests(TestCase):
         self.assertEqual(register_response.status_code, status.HTTP_201_CREATED)
         self.assertIn('user', register_response.data)
         self.assertIn('email', register_response.data['user'])
+        
+        # Track created user
+        user = User.objects.get(email=email)
+        self.created_users.append(user)
         
         # Step 2: Login
         login_url = reverse('accounts:login')
@@ -164,6 +177,11 @@ class UserTaskFlowIntegrationTests(TestCase):
         self.client.post(register_url, user1_data, format='json')
         self.client.post(register_url, user2_data, format='json')
         
+        # Track created users
+        user1 = User.objects.get(email=user1_data['email'])
+        user2 = User.objects.get(email=user2_data['email'])
+        self.created_users.extend([user1, user2])
+        
         # Login as user1
         login_url = reverse('accounts:login')
         login1_response = self.client.post(
@@ -223,6 +241,12 @@ class TaskWorkflowTests(TestCase):
         )
         self.client.force_authenticate(user=self.user)
         self.tasks_url = reverse('tasks:task-list')
+
+    def tearDown(self):
+        """Clean up after each test."""
+        Task.objects.filter(user=self.user).delete()
+        Token.objects.filter(user=self.user).delete()
+        User.objects.filter(id=self.user.id).delete()
 
     def test_task_lifecycle(self):
         """Test complete task lifecycle: TODO -> DOING -> DONE."""
