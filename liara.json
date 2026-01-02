@@ -2,10 +2,23 @@
   "platform": "docker",
   "app": "enginner-taskboard",
   "port": 8000,
+  "image": "backend",
+  "context": "./backend",
+  "dockerfile": "Dockerfile",
   "disks": [
     {
-      "name": "data",
-      "mountTo": "/app/data"
+      "name": "static-files",
+      "mountTo": "/app/staticfiles"
+    },
+    {
+      "name": "media-files",
+      "mountTo": "/app/media"
     }
-  ]
+  ],
+  "healthCheck": {
+    "path": "/api/health/",
+    "initialDelaySeconds": 30,
+    "periodSeconds": 10
+  },
+  "buildLocation": "backend"
 }
