@@ -17,6 +17,10 @@ class TaskModelTests(TransactionTestCase):
 
     def setUp(self):
         """Set up test data."""
+        # Explicitly clean all data to ensure isolation
+        Task.objects.all().delete()
+        User.objects.all().delete()
+        
         self.user = User.objects.create_user(
             email='taskuser@example.com',
             username='taskuser',
