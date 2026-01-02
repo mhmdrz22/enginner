@@ -1,217 +1,228 @@
-# Security Guidelines & Checklist
+# Security Policy and Checklist
 
-## 🔴 Critical Security Issues - MUST FIX BEFORE PRODUCTION
+## 🔒 Security Guidelines
 
-### Authentication & Secrets
-- [ ] **SECRET_KEY**: تولید SECRET_KEY جدید با حداقل 50 کاراکتر
-  ```bash
-  python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-  ```
-- [ ] **Database Passwords**: استفاده از رمز عبور قوی (حداقل 16 کاراکتر، شامل حروف بزرگ/کوچک، اعداد و کاراکترهای خاص)
-- [ ] **Redis Password**: تنظیم رمز عبور برای Redis در production
-- [ ] **Environment Variables**: همه مقادیر حساس از فایل `.env` خوانده شوند نه hardcode
+این فایل شامل تمام موارد امنیتی است که باید قبل از production بررسی شوند.
 
-### Django Security Settings
-- [ ] `DEBUG=False` در production
-- [ ] `ALLOWED_HOSTS` محدود به دامنه‌های واقعی (نه `*`)
-- [ ] `CORS_ALLOWED_ORIGINS` محدود به دامنه‌های مجاز
-- [ ] `SECURE_SSL_REDIRECT=True` برای redirect اجباری به HTTPS
-- [ ] `SESSION_COOKIE_SECURE=True`
-- [ ] `CSRF_COOKIE_SECURE=True`
-- [ ] `SECURE_BROWSER_XSS_FILTER=True`
-- [ ] `SECURE_CONTENT_TYPE_NOSNIFF=True`
-- [ ] `X_FRAME_OPTIONS=DENY` یا `SAMEORIGIN`
-- [ ] `SECURE_HSTS_SECONDS=31536000` (1 سال)
-- [ ] `SECURE_HSTS_INCLUDE_SUBDOMAINS=True`
-- [ ] `SECURE_HSTS_PRELOAD=True`
+## Pre-Production Checklist (فعلا)
 
-### File & Git Security
-- [ ] فایل `.env` در `.gitignore` قرار دارد
-- [ ] فایل `.env` از git history حذف شده است
-- [ ] Pre-commit hooks نصب و فعال است
-- [ ] Secret scanning با detect-secrets فعال است
-- [ ] هیچ کلید خصوصی یا certificate در repository نیست
+### ✅ کانفیگ‌های اولیه
+- [x] Pre-commit hooks نصب و فعال شده
+- [x] فایل `.pre-commit-config.yaml` ایجاد شده
+- [x] Git hooks برای جلوگیری از commit به main
+- [ ] تمام تیم اعضا pre-commit را نصب کرده‌اند
+- [ ] `.secrets.baseline` ایجاد شده
 
----
+### ✅ مدیریت Secret ها
+- [ ] فایل `.env` از git history حذف شده (استفاده از git filter-repo)
+- [ ] تمام `.env` فایل‌ها در `.gitignore` هستند
+- [ ] `.env.example` بدون هیچ اطلاعات حساس
+- [ ] تمام SECRET_KEY ها و password ها تغییر کرده‌اند
+- [ ] استفاده از environment variables به جای hardcode
 
-## 🟡 Pre-Production Checklist
+### ✅ Docker و محیط‌های مختلف
+- [x] `docker-compose.yml` برای development
+- [x] `docker-compose.prod.yml` برای production
+- [ ] `docker-compose.test.yml` برای تست‌ها
+- [ ] `.env.example` کامل با توضیحات
+- [ ] `.env.local` برای development محلی
+- [ ] `.env.test` برای محیط تست
+- [ ] `.env.production` برای production (نباید در git باشد)
 
-### Code Quality & Testing
-- [ ] تمام تست‌ها pass می‌شوند
-- [ ] Code coverage حداقل 80% است
-- [ ] Security scan با bandit انجام شده
-- [ ] Dependency vulnerability check با safety انجام شده
-- [ ] Static code analysis با flake8/pylint انجام شده
-
-### Docker & Infrastructure
-- [ ] Dockerfile از multi-stage build استفاده می‌کند
-- [ ] Images از non-root user استفاده می‌کنند
-- [ ] Health checks برای همه سرویس‌ها تعریف شده
-- [ ] Resource limits (CPU/Memory) تنظیم شده
-- [ ] Logging به درستی پیکربندی شده
-
-### Database
-- [ ] Database migrations اعمال شده
-- [ ] Database backup strategy مشخص شده
-- [ ] Database indexes بهینه شده
-- [ ] Database connection pooling پیکربندی شده
-
-### API & Backend
-- [ ] Rate limiting فعال است
-- [ ] API authentication برای همه endpoints
-- [ ] Input validation در همه جا اعمال شده
-- [ ] SQL injection prevention (استفاده از ORM)
-- [ ] XSS prevention در output ها
-- [ ] CSRF protection فعال است
+### ✅ تست و کیفیت کد
+- [ ] Coverage حداقل 85٪
+- [ ] تست‌های Unit برای بخش‌های حیاتی
+- [ ] تست‌های Integration برای API ها
+- [ ] Security tests (مثلا SQL injection, XSS)
+- [ ] تست‌های load و performance
 
 ---
 
-## 🟢 Production Checklist
+## 🚨 Production Critical Checklist
 
-### SSL/TLS
-- [ ] SSL Certificate نصب شده (Let's Encrypt یا خریداری شده)
-- [ ] Certificate renewal خودکار پیکربندی شده
-- [ ] TLS 1.2+ فعال است
-- [ ] Weak ciphers غیرفعال شده‌اند
+### Django Settings - CRITICAL
+```python
+# ⚠️ این موارد حتما باید در production تنظیم شوند
+DEBUG = False  # حتما False
+SECRET_KEY = os.environ.get('SECRET_KEY')  # از environment
+ALLOWED_HOSTS = ['yourdomain.com', 'www.yourdomain.com']  # محدود به domain واقعی
+```
 
-### Monitoring & Logging
-- [ ] Application monitoring راه‌اندازی شده (Sentry, New Relic, etc.)
-- [ ] Log aggregation پیکربندی شده
-- [ ] Error alerting فعال است
-- [ ] Performance monitoring فعال است
-- [ ] Uptime monitoring فعال است
+### Security Headers - REQUIRED
+```python
+# Django Security Settings
+SECURE_SSL_REDIRECT = True
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+```
 
-### Backup & Recovery
-- [ ] Database backup روزانه/هفتگی
-- [ ] Backup verification منظم
-- [ ] Disaster recovery plan مستند شده
-- [ ] Media files backup شده
+### Database Security
+- [ ] Password قوی (حداقل 16 کاراکتر، ترکیبی)
+- [ ] Database user با حداقل دسترسی لازم
+- [ ] Backup روزانه فعال
+- [ ] Backup در مکان جداگانه و امن
+- [ ] Test restore کردن backup
 
-### Performance
-- [ ] Static files از CDN serve می‌شوند
-- [ ] Database query optimization انجام شده
-- [ ] Caching strategy پیاده شده (Redis)
-- [ ] GZIP compression فعال است
-- [ ] Image optimization انجام شده
+### SSL/TLS Configuration
+- [ ] SSL Certificate نصب شده
+- [ ] Certificate از CA معتبر (مثلا Let's Encrypt)
+- [ ] HTTPS اجباری (HTTP redirect to HTTPS)
+- [ ] TLS 1.2+ فعال (TLS 1.0 و 1.1 غیرفعال)
+- [ ] SSL Labs test: حداقل نمره A
 
-### Network Security
-- [ ] Firewall rules تنظیم شده
-- [ ] DDoS protection فعال است (Cloudflare, etc.)
-- [ ] Port scanning prevention
-- [ ] VPN/Private network برای دسترسی به database
+### Application Security
+- [ ] CORS به درستی کانفیگ شده
+- [ ] Rate limiting فعال (مثلا django-ratelimit)
+- [ ] SQL Injection prevention (استفاده از ORM)
+- [ ] XSS protection فعال
+- [ ] CSRF protection فعال
+- [ ] File upload validation
+- [ ] Input sanitization
+
+### Infrastructure Security
+- [ ] Firewall کانفیگ شده (فقط port های لازم)
+- [ ] SSH key-based authentication
+- [ ] Fail2ban یا مشابه نصب شده
+- [ ] Automated security updates
+- [ ] Log rotation کانفیگ شده
+
+### Monitoring و Logging
+- [ ] Error logging فعال (مثلا Sentry)
+- [ ] Access logs فعال
+- [ ] Alert برای suspicious activities
+- [ ] Health check endpoints
+- [ ] Monitoring dashboard (مثلا Grafana)
+- [ ] Uptime monitoring
+
+### Docker Production
+- [ ] استفاده از non-root user در containers
+- [ ] Multi-stage builds برای کاهش حجم
+- [ ] Security scan با Trivy یا Snyk
+- [ ] Resource limits تعریف شده
+- [ ] Health checks برای تمام services
+- [ ] Restart policies تنظیم شده
+
+### CI/CD Security
+- [ ] Secrets در GitHub Secrets ذخیره شده
+- [ ] Security scanning در pipeline
+- [ ] Dependency vulnerability scanning
+- [ ] Code quality gates
+- [ ] Automated testing قبل از merge
 
 ---
 
-## 🔧 Security Tools & Commands
+## 🔍 Security Scanning Commands
 
-### Pre-commit Setup
+### Pre-commit Checks
 ```bash
 # نصب pre-commit
 pip install pre-commit
-
-# نصب hooks
 pre-commit install
 
-# اجرا روی تمام فایل‌ها
+# اجرای manual
 pre-commit run --all-files
 
-# ایجاد baseline برای secrets
-detect-secrets scan > .secrets.baseline
+# بروزرسانی hooks
+pre-commit autoupdate
 ```
 
-### Security Scanning
+### Python Security Scanning
 ```bash
-# Bandit - Python security scanner
+# Bandit - Security linter
 bandit -r backend/ -ll
 
-# Safety - Dependency vulnerability checker
+# Safety - Dependency vulnerability check
 safety check --file backend/requirements.txt
 
-# Trivy - Container vulnerability scanner
-trivy image taskboard_backend:latest
-
-# npm audit - Node.js dependencies
-cd frontend && npm audit
+# Pip-audit - Alternative to safety
+pip-audit
 ```
 
-### Package Updates
+### Docker Security Scanning
 ```bash
-# بررسی نسخه‌های outdated در Python
-pip list --outdated
+# Trivy - Container vulnerability scanner
+trivy image your-image:tag
 
-# بررسی نسخه‌های outdated در Node.js
-npm outdated
+# Docker scan
+docker scan your-image:tag
 
-# بروزرسانی packages (با احتیاط)
-pip install --upgrade <package-name>
-npm update <package-name>
+# Hadolint - Dockerfile linter
+hadolint backend/Dockerfile
+hadolint frontend/Dockerfile
+```
+
+### Full Project Scan
+```bash
+# Trivy filesystem scan
+trivy fs --security-checks vuln,config .
+
+# Secret scanning
+detect-secrets scan > .secrets.baseline
+detect-secrets audit .secrets.baseline
 ```
 
 ---
 
-## 📚 Security Best Practices
+## 📋 Regular Security Tasks
 
-### Password Policies
-- حداقل 16 کاراکتر
-- ترکیب حروف بزرگ/کوچک، اعداد و کاراکترهای خاص
-- استفاده از password manager
-- تغییر منظم passwords (هر 90 روز)
-- عدم استفاده مجدد از passwords
+### هفتگی
+- [ ] بررسی logs برای suspicious activities
+- [ ] بررسی uptime و performance metrics
+- [ ] بررسی disk space و resources
 
-### API Security
-- استفاده از JWT یا Token-based authentication
-- Rate limiting برای جلوگیری از abuse
-- Input validation در سمت server
-- Output encoding برای جلوگیری از XSS
-- استفاده از HTTPS برای همه API calls
+### ماهانه
+- [ ] بروزرسانی dependencies
+- [ ] Security scanning کل پروژه
+- [ ] Review access logs
+- [ ] Test backup restoration
 
-### Container Security
-- استفاده از official images
-- Scan images برای vulnerabilities
-- استفاده از non-root users
-- حداقل packages ضروری را نصب کنید
-- بروزرسانی منظم base images
-
-### Code Review Guidelines
-- بررسی hardcoded secrets
-- بررسی SQL injection vulnerabilities
-- بررسی XSS vulnerabilities
-- بررسی authentication/authorization logic
-- بررسی error handling و information disclosure
+### فصلی (هر 3 ماه)
+- [ ] Security audit کامل
+- [ ] Penetration testing
+- [ ] Review و بروزرسانی security policies
+- [ ] SSL certificate renewal check
 
 ---
 
-## 🚨 Incident Response
+## 🆘 Incident Response Plan
 
-در صورت کشف vulnerability:
+در صورت مشکل امنیتی:
 
-1. **فوری**: سرویس را از دسترس خارج کنید (در صورت critical)
-2. **ارزیابی**: میزان آسیب را ارزیابی کنید
-3. **اصلاح**: vulnerability را اصلاح کنید
-4. **تست**: اصلاح را به طور کامل تست کنید
-5. **Deploy**: با احتیاط به production deploy کنید
-6. **مستند‌سازی**: incident را مستند کنید
-7. **یادگیری**: از incident درس بگیرید
-
----
-
-## 📞 Security Contacts
-
-- **تیم توسعه**: [ایمیل یا Slack]
-- **مدیر پروژه**: [ایمیل]
-- **مسئول امنیت**: [ایمیل]
+1. **فوری**: سرویس را offline کنید اگر breach فعال است
+2. **شناسایی**: scope و nature مشکل را تعیین کنید
+3. **Log**: تمام اطلاعات مربوط را ذخیره کنید
+4. **Patch**: مشکل را برطرف کنید
+5. **Test**: تست کنید که مشکل حل شده
+6. **Monitor**: مانیتورینگ فعال برای تشخیص تکرار
+7. **Document**: همه چیز را مستند کنید
+8. **Review**: Post-mortem و بهبود process ها
 
 ---
 
-## 📅 Security Audit Schedule
+## 📞 Reporting Security Issues
 
-- **روزانه**: Automated security scans (pre-commit, CI/CD)
-- **هفتگی**: Dependency updates check
-- **ماهانه**: Manual security review
-- **فصلی**: Comprehensive security audit
-- **سالانه**: Penetration testing
+اگر مشکل امنیتی پیدا کردید:
+- ❌ Public issue باز نکنید
+- ✅ به صورت خصوصی گزارش دهید
+- ✅ شامل جزئیات کافی برای reproduce
 
 ---
 
-**آخرین بروزرسانی**: 2026-01-02
-**نسخه**: 1.0.0
+## 🔗 Resources
+
+- [OWASP Top 10](https://owasp.org/www-project-top-ten/)
+- [Django Security](https://docs.djangoproject.com/en/stable/topics/security/)
+- [Docker Security Best Practices](https://docs.docker.com/develop/security-best-practices/)
+- [Mozilla Observatory](https://observatory.mozilla.org/)
+- [SSL Labs](https://www.ssllabs.com/ssltest/)
+
+---
+
+**آخرین بروزرسانی**: {{ date }}
+**بررسی بعدی**: قبل از production deployment
