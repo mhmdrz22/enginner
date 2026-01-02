@@ -1,7 +1,7 @@
 """Integration tests for complete user flows."""
 
 import uuid
-from django.test import TestCase
+from django.test import TransactionTestCase
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
@@ -13,29 +13,17 @@ from tasks.models import Task
 User = get_user_model()
 
 
-class UserTaskFlowIntegrationTests(TestCase):
+class UserTaskFlowIntegrationTests(TransactionTestCase):
     """Test complete user journey from registration to task management."""
+    
+    reset_sequences = True
 
     def setUp(self):
         """Set up API client and clean database."""
-        # Clean up any existing test data first
-        Task.objects.all().delete()
-        Token.objects.all().delete()
-        
         self.client = APIClient()
         # Generate unique identifiers for this test
         self.unique_id = uuid.uuid4().hex[:8]
         self.created_users = []
-
-    def tearDown(self):
-        """Clean up after each test."""
-        # Delete all tasks first
-        Task.objects.all().delete()
-        # Delete all tokens
-        Token.objects.all().delete()
-        # Delete created users
-        if self.created_users:
-            User.objects.filter(id__in=[u.id for u in self.created_users]).delete()
 
     def test_complete_user_journey(self):
         """Test full flow: register -> login -> create tasks -> manage tasks."""
@@ -84,9 +72,6 @@ class UserTaskFlowIntegrationTests(TestCase):
         
         token = login_response.data['token']
         self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
-        
-        # Clean any existing tasks before creating new ones
-        Task.objects.filter(user=user).delete()
         
         # Step 3: Create multiple tasks
         tasks_url = reverse('tasks:task-list')
@@ -191,9 +176,6 @@ class UserTaskFlowIntegrationTests(TestCase):
         user2 = User.objects.get(email=user2_data['email'])
         self.created_users.extend([user1, user2])
         
-        # Clean any existing tasks for these users
-        Task.objects.filter(user__in=[user1, user2]).delete()
-        
         # Login as user1
         login_url = reverse('accounts:login')
         login1_response = self.client.post(
@@ -239,15 +221,13 @@ class UserTaskFlowIntegrationTests(TestCase):
         self.assertEqual(len(list_response.data), 0)
 
 
-class TaskWorkflowTests(TestCase):
+class TaskWorkflowTests(TransactionTestCase):
     """Test task workflow scenarios."""
+    
+    reset_sequences = True
 
     def setUp(self):
         """Set up authenticated user with unique credentials."""
-        # Clean up any existing test data first
-        Task.objects.all().delete()
-        Token.objects.all().delete()
-        
         self.client = APIClient()
         unique_id = uuid.uuid4().hex[:8]
         self.user = User.objects.create_user(
@@ -257,12 +237,6 @@ class TaskWorkflowTests(TestCase):
         )
         self.client.force_authenticate(user=self.user)
         self.tasks_url = reverse('tasks:task-list')
-
-    def tearDown(self):
-        """Clean up after each test."""
-        Task.objects.all().delete()
-        Token.objects.all().delete()
-        User.objects.filter(id=self.user.id).delete()
 
     def test_task_lifecycle(self):
         """Test complete task lifecycle: TODO -> DOING -> DONE."""
@@ -309,9 +283,6 @@ class TaskWorkflowTests(TestCase):
     def test_bulk_task_creation(self):
         """Test creating multiple tasks at once."""
         
-        # Clean any existing tasks first
-        Task.objects.filter(user=self.user).delete()
-        
         task_titles = [
             'Task 1',
             'Task 2',
@@ -334,9 +305,6 @@ class TaskWorkflowTests(TestCase):
 
     def test_priority_based_workflow(self):
         """Test tasks with different priorities."""
-        
-        # Clean any existing tasks first
-        Task.objects.filter(user=self.user).delete()
         
         # Create tasks with different priorities
         Task.objects.create(
