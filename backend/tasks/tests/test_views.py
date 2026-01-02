@@ -20,6 +20,10 @@ class TaskAPITests(TestCase):
 
     def setUp(self):
         """Set up test client and data with unique users."""
+        # Clean up any existing test data first
+        Task.objects.all().delete()
+        Token.objects.all().delete()
+        
         self.client = APIClient()
         
         # Generate unique IDs for this test instance
@@ -56,15 +60,18 @@ class TaskAPITests(TestCase):
 
     def tearDown(self):
         """Clean up after each test."""
-        # Explicitly delete all tasks created by test users
-        Task.objects.filter(user__in=[self.user1, self.user2]).delete()
+        # Explicitly delete all tasks first
+        Task.objects.all().delete()
         # Delete tokens
-        Token.objects.filter(user__in=[self.user1, self.user2]).delete()
+        Token.objects.all().delete()
         # Delete users
         User.objects.filter(id__in=[self.user1.id, self.user2.id]).delete()
 
     def test_list_tasks_authenticated(self):
         """Test authenticated user can list their tasks."""
+        # Clean any existing tasks first
+        Task.objects.all().delete()
+        
         # Create tasks for user1
         Task.objects.create(user=self.user1, title='Task 1')
         Task.objects.create(user=self.user1, title='Task 2')
@@ -215,6 +222,9 @@ class TaskAPITests(TestCase):
 
     def test_filter_tasks_by_status(self):
         """Test filtering tasks by status."""
+        # Clean any existing tasks first
+        Task.objects.all().delete()
+        
         Task.objects.create(user=self.user1, title='Todo', status='TODO')
         Task.objects.create(user=self.user1, title='Doing', status='DOING')
         Task.objects.create(user=self.user1, title='Done', status='DONE')
@@ -228,6 +238,9 @@ class TaskAPITests(TestCase):
 
     def test_filter_tasks_by_priority(self):
         """Test filtering tasks by priority."""
+        # Clean any existing tasks first
+        Task.objects.all().delete()
+        
         Task.objects.create(user=self.user1, title='Low', priority='LOW')
         Task.objects.create(user=self.user1, title='High', priority='HIGH')
         
