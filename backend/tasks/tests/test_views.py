@@ -17,11 +17,15 @@ User = get_user_model()
 class TaskAPITests(TransactionTestCase):
     """Test suite for Task API endpoints."""
     
-    # Ensure complete database reset between tests
     serialized_rollback = True
 
     def setUp(self):
         """Set up test client and data."""
+        # Explicitly clean all data to ensure isolation
+        Task.objects.all().delete()
+        Token.objects.all().delete()
+        User.objects.all().delete()
+        
         self.client = APIClient()
         
         # Create users
