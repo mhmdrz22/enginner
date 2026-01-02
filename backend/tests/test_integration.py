@@ -15,22 +15,12 @@ User = get_user_model()
 class UserTaskFlowIntegrationTests(TransactionTestCase):
     """Test complete user journey from registration to task management."""
     
-    reset_sequences = True
+    # Ensure complete database reset between tests
+    serialized_rollback = True
 
     def setUp(self):
         """Set up API client."""
-        # Clean up any existing data
-        Task.objects.all().delete()
-        Token.objects.all().delete()
-        User.objects.all().delete()
-        
         self.client = APIClient()
-
-    def tearDown(self):
-        """Clean up after each test."""
-        Task.objects.all().delete()
-        Token.objects.all().delete()
-        User.objects.all().delete()
 
     def test_complete_user_journey(self):
         """Test full flow: register -> login -> create tasks -> manage tasks."""
@@ -216,15 +206,11 @@ class UserTaskFlowIntegrationTests(TransactionTestCase):
 class TaskWorkflowTests(TransactionTestCase):
     """Test task workflow scenarios."""
     
-    reset_sequences = True
+    # Ensure complete database reset between tests
+    serialized_rollback = True
 
     def setUp(self):
         """Set up authenticated user."""
-        # Clean up any existing data
-        Task.objects.all().delete()
-        Token.objects.all().delete()
-        User.objects.all().delete()
-        
         self.client = APIClient()
         self.user = User.objects.create_user(
             email='workflow@example.com',
@@ -233,12 +219,6 @@ class TaskWorkflowTests(TransactionTestCase):
         )
         self.client.force_authenticate(user=self.user)
         self.tasks_url = reverse('tasks:task-list')
-
-    def tearDown(self):
-        """Clean up after each test."""
-        Task.objects.all().delete()
-        Token.objects.all().delete()
-        User.objects.all().delete()
 
     def test_task_lifecycle(self):
         """Test complete task lifecycle: TODO -> DOING -> DONE."""
