@@ -1,5 +1,6 @@
 """Tests for task views and API endpoints."""
 
+import uuid
 from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth import get_user_model
@@ -18,18 +19,22 @@ class TaskAPITests(TestCase):
     """Test suite for Task API endpoints."""
 
     def setUp(self):
-        """Set up test client and data."""
+        """Set up test client and data with unique users."""
         self.client = APIClient()
         
-        # Create users
+        # Generate unique IDs for this test instance
+        uid1 = uuid.uuid4().hex[:8]
+        uid2 = uuid.uuid4().hex[:8]
+        
+        # Create users with unique credentials
         self.user1 = User.objects.create_user(
-            email='user1@example.com',
-            username='user1',
+            email=f'user1_{uid1}@example.com',
+            username=f'user1_{uid1}',
             password='User1Pass123!'
         )
         self.user2 = User.objects.create_user(
-            email='user2@example.com',
-            username='user2',
+            email=f'user2_{uid2}@example.com',
+            username=f'user2_{uid2}',
             password='User2Pass123!'
         )
         
