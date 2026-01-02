@@ -1,0 +1,38 @@
+# Development and Testing Requirements
+
+# Base requirements
+-r requirements.txt
+
+# Testing
+pytest==7.4.3
+pytest-django==4.7.0
+pytest-cov==4.1.0
+pytest-xdist==3.5.0
+pytest-mock==3.12.0
+factory-boy==3.3.0
+faker==21.0.0
+
+# Code Quality
+black==23.12.1
+flake8==7.0.0
+isort==5.13.2
+pylint==3.0.3
+mypy==1.8.0
+
+# Coverage
+coverage[toml]==7.4.0
+
+# Performance Testing
+locust==2.20.0
+
+# Security
+bandit==1.7.6
+safety==2.3.5
+
+# Debugging
+ipdb==0.13.13
+django-debug-toolbar==4.2.0
+
+# Documentation
+sphinx==7.2.6
+sphinx-rtd-theme==2.0.0
