@@ -14,8 +14,6 @@ User = get_user_model()
 
 class UserTaskFlowIntegrationTests(TransactionTestCase):
     """Test complete user journey from registration to task management."""
-    
-    serialized_rollback = True
 
     def setUp(self):
         """Set up API client."""
@@ -209,8 +207,6 @@ class UserTaskFlowIntegrationTests(TransactionTestCase):
 
 class TaskWorkflowTests(TransactionTestCase):
     """Test task workflow scenarios."""
-    
-    serialized_rollback = True
 
     def setUp(self):
         """Set up authenticated user."""
