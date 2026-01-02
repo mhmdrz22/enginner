@@ -1,6 +1,6 @@
 """Integration tests for complete user flows."""
 
-from django.test import TestCase
+from django.test import TransactionTestCase
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
@@ -11,8 +11,10 @@ from tasks.models import Task
 User = get_user_model()
 
 
-class UserTaskFlowIntegrationTests(TestCase):
+class UserTaskFlowIntegrationTests(TransactionTestCase):
     """Test complete user journey from registration to task management."""
+    
+    reset_sequences = True
 
     def setUp(self):
         """Set up API client."""
@@ -133,10 +135,6 @@ class UserTaskFlowIntegrationTests(TestCase):
     def test_user_isolation(self):
         """Test that users can only see and manage their own tasks."""
         
-        # Clear any existing data
-        Task.objects.all().delete()
-        User.objects.all().delete()
-        
         # Create two users
         user1_data = {
             'email': 'user1@example.com',
@@ -203,8 +201,10 @@ class UserTaskFlowIntegrationTests(TestCase):
         self.assertEqual(len(list_response.data), 0)
 
 
-class TaskWorkflowTests(TestCase):
+class TaskWorkflowTests(TransactionTestCase):
     """Test task workflow scenarios."""
+    
+    reset_sequences = True
 
     def setUp(self):
         """Set up authenticated user."""
@@ -262,9 +262,6 @@ class TaskWorkflowTests(TestCase):
     def test_bulk_task_creation(self):
         """Test creating multiple tasks at once."""
         
-        # Clear existing tasks
-        Task.objects.all().delete()
-        
         task_titles = [
             'Task 1',
             'Task 2',
@@ -287,9 +284,6 @@ class TaskWorkflowTests(TestCase):
 
     def test_priority_based_workflow(self):
         """Test tasks with different priorities."""
-        
-        # Clear existing tasks
-        Task.objects.all().delete()
         
         # Create tasks with different priorities
         Task.objects.create(
