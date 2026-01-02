@@ -2,7 +2,7 @@
 
 from django.test import TestCase
 from django.contrib.auth import get_user_model, authenticate
-from accounts.authenticator import EmailBackend
+from accounts.backends import EmailBackend
 
 
 User = get_user_model()
