@@ -12,8 +12,6 @@ User = get_user_model()
 
 class TaskModelTests(TransactionTestCase):
     """Test suite for Task model."""
-    
-    serialized_rollback = True
 
     def setUp(self):
         """Set up test data."""
