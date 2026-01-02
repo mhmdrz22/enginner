@@ -42,8 +42,9 @@ class UserAuthenticationTests(TestCase):
         )
         
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertIn('email', response.data)
-        self.assertEqual(response.data['email'], self.user_data['email'])
+        self.assertIn('user', response.data)
+        self.assertIn('email', response.data['user'])
+        self.assertEqual(response.data['user']['email'], self.user_data['email'])
         
         # Verify user was created in database
         user_exists = User.objects.filter(
