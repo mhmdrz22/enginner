@@ -4,6 +4,8 @@ from .views import (
     LoginView,
     LogoutView,
     ProfileView,
+    AdminOverviewView,
+    AdminNotifyView,
 )
 
 app_name = 'accounts'
@@ -13,4 +15,6 @@ urlpatterns = [
     path('login/', LoginView.as_view(), name='login'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('profile/', ProfileView.as_view(), name='profile'),
+    path('admin/overview/', AdminOverviewView.as_view(), name='admin-overview'),
+    path('admin/notify/', AdminNotifyView.as_view(), name='admin-notify'),
 ]
