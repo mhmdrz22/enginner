@@ -1,6 +1,6 @@
 """Tests for Task model."""
 
-from django.test import TestCase
+from django.test import TransactionTestCase
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
@@ -10,8 +10,10 @@ from tasks.models import Task
 User = get_user_model()
 
 
-class TaskModelTests(TestCase):
+class TaskModelTests(TransactionTestCase):
     """Test suite for Task model."""
+    
+    serialized_rollback = True
 
     def setUp(self):
         """Set up test data."""
