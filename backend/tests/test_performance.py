@@ -1,10 +1,9 @@
 """Performance and load tests."""
 
 import time
-from django.test import TransactionTestCase
+import uuid
+from django.test import TestCase
 from django.contrib.auth import get_user_model
-from django.db import connection
-from django.test.utils import override_settings
 from rest_framework.authtoken.models import Token
 from tasks.models import Task
 
@@ -12,23 +11,29 @@ from tasks.models import Task
 User = get_user_model()
 
 
-class PerformanceTests(TransactionTestCase):
+class PerformanceTests(TestCase):
     """Test suite for performance benchmarks."""
-    
-    serialized_rollback = True
 
     def setUp(self):
         """Set up test user."""
-        # Explicitly clean all data to ensure isolation
+        # Clean database
         Task.objects.all().delete()
         Token.objects.all().delete()
         User.objects.all().delete()
         
+        # Create unique user
+        unique_id = uuid.uuid4().hex[:8]
         self.user = User.objects.create_user(
-            email='perf@example.com',
-            username='perfuser',
+            email=f'perf_{unique_id}@example.com',
+            username=f'perfuser_{unique_id}',
             password='PerfPass123!'
         )
+
+    def tearDown(self):
+        """Clean up after test."""
+        Task.objects.all().delete()
+        Token.objects.all().delete()
+        User.objects.all().delete()
 
     def test_bulk_task_creation_performance(self):
         """Test performance of creating many tasks."""
@@ -52,7 +57,7 @@ class PerformanceTests(TransactionTestCase):
         
         # Should complete in less than 1 second
         self.assertLess(duration, 1.0)
-        self.assertEqual(Task.objects.count(), 100)
+        self.assertEqual(Task.objects.filter(user=self.user).count(), 100)
 
     def test_query_performance(self):
         """Test query performance with many records."""
@@ -90,8 +95,7 @@ class PerformanceTests(TransactionTestCase):
             for i in range(10)
         ])
         
-        # Count queries - TransactionTestCase may have more queries
-        # Just ensure tasks are retrieved
+        # Count queries - TestCase ensures proper transaction handling
         tasks = list(Task.objects.filter(user=self.user))
         self.assertEqual(len(tasks), 10)
 
@@ -146,14 +150,17 @@ class PerformanceTests(TransactionTestCase):
         self.assertLess(duration, 0.1)
 
 
-class ScalabilityTests(TransactionTestCase):
+class ScalabilityTests(TestCase):
     """Test scalability with multiple users."""
-    
-    serialized_rollback = True
 
     def setUp(self):
         """Set up clean database."""
-        # Explicitly clean all data to ensure isolation
+        Task.objects.all().delete()
+        Token.objects.all().delete()
+        User.objects.all().delete()
+
+    def tearDown(self):
+        """Clean up after test."""
         Task.objects.all().delete()
         Token.objects.all().delete()
         User.objects.all().delete()
@@ -161,12 +168,13 @@ class ScalabilityTests(TransactionTestCase):
     def test_multiple_users_performance(self):
         """Test system performance with multiple users."""
         
-        # Create multiple users
+        # Create multiple users with unique identifiers
         users = []
         for i in range(10):
+            unique_id = uuid.uuid4().hex[:8]
             user = User.objects.create_user(
-                email=f'scale{i}@example.com',
-                username=f'scaleuser{i}',
+                email=f'scale{i}_{unique_id}@example.com',
+                username=f'scaleuser{i}_{unique_id}',
                 password='ScalePass123!'
             )
             users.append(user)
@@ -192,12 +200,18 @@ class ScalabilityTests(TransactionTestCase):
     def test_concurrent_task_access(self):
         """Test accessing tasks with concurrent user simulation."""
         
+        # Create unique users
+        unique_id1 = uuid.uuid4().hex[:8]
+        unique_id2 = uuid.uuid4().hex[:8]
+        
         user1 = User.objects.create_user(
-            email='concurrent1@example.com',
+            email=f'concurrent1_{unique_id1}@example.com',
+            username=f'concurrent1_{unique_id1}',
             password='pass123'
         )
         user2 = User.objects.create_user(
-            email='concurrent2@example.com',
+            email=f'concurrent2_{unique_id2}@example.com',
+            username=f'concurrent2_{unique_id2}',
             password='pass123'
         )
         
