@@ -19,6 +19,9 @@ class TaskViewSet(viewsets.ModelViewSet):
     search_fields = ['title', 'description']
     ordering_fields = ['created_at', 'due_date', 'priority']
     ordering = ['-created_at']
+    
+    # Disable pagination to return simple list instead of paginated response
+    pagination_class = None
 
     def get_queryset(self):
         """Return only tasks belonging to the current user."""
