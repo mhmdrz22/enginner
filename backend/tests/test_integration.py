@@ -1,5 +1,6 @@
 """Integration tests for complete user flows."""
 
+import uuid
 from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth import get_user_model
@@ -16,17 +17,40 @@ class UserTaskFlowIntegrationTests(TestCase):
     """Test complete user journey from registration to task management."""
 
     def setUp(self):
-        """Set up API client."""
+        """Set up API client and clean database."""
         self.client = APIClient()
+        # Ensure clean state
+        Task.objects.all().delete()
+        Token.objects.all().delete()
+        User.objects.all().delete()
+
+    def tearDown(self):
+        """Clean up after each test."""
+        Task.objects.all().delete()
+        Token.objects.all().delete()
+        User.objects.all().delete()
+
+    def _generate_unique_email(self, base="test"):
+        """Generate unique email address."""
+        unique_id = uuid.uuid4().hex[:8]
+        return f"{base}_{unique_id}@example.com"
+
+    def _generate_unique_username(self, base="user"):
+        """Generate unique username."""
+        unique_id = uuid.uuid4().hex[:8]
+        return f"{base}_{unique_id}"
 
     def test_complete_user_journey(self):
         """Test full flow: register -> login -> create tasks -> manage tasks."""
         
         # Step 1: Register new user
         register_url = reverse('accounts:register')
+        email = self._generate_unique_email('journey')
+        username = self._generate_unique_username('journeyuser')
+        
         register_data = {
-            'email': 'journey@example.com',
-            'username': 'journeyuser',
+            'email': email,
+            'username': username,
             'password': 'JourneyPass123!',
             'password2': 'JourneyPass123!'
         }
@@ -44,7 +68,7 @@ class UserTaskFlowIntegrationTests(TestCase):
         # Step 2: Login
         login_url = reverse('accounts:login')
         login_data = {
-            'email': 'journey@example.com',
+            'email': email,
             'password': 'JourneyPass123!'
         }
         
@@ -129,22 +153,27 @@ class UserTaskFlowIntegrationTests(TestCase):
         profile_response = self.client.get(profile_url)
         
         self.assertEqual(profile_response.status_code, status.HTTP_200_OK)
-        self.assertEqual(profile_response.data['email'], 'journey@example.com')
+        self.assertEqual(profile_response.data['email'], email)
 
     def test_user_isolation(self):
         """Test that users can only see and manage their own tasks."""
         
         # Create two users
+        email1 = self._generate_unique_email('user1')
+        email2 = self._generate_unique_email('user2')
+        username1 = self._generate_unique_username('user1')
+        username2 = self._generate_unique_username('user2')
+        
         user1_data = {
-            'email': 'user1@example.com',
-            'username': 'user1',
+            'email': email1,
+            'username': username1,
             'password': 'User1Pass123!',
             'password2': 'User1Pass123!'
         }
         
         user2_data = {
-            'email': 'user2@example.com',
-            'username': 'user2',
+            'email': email2,
+            'username': username2,
             'password': 'User2Pass123!',
             'password2': 'User2Pass123!'
         }
@@ -159,7 +188,7 @@ class UserTaskFlowIntegrationTests(TestCase):
         login_url = reverse('accounts:login')
         login1_response = self.client.post(
             login_url,
-            {'email': 'user1@example.com', 'password': 'User1Pass123!'},
+            {'email': email1, 'password': 'User1Pass123!'},
             format='json'
         )
         
@@ -180,7 +209,7 @@ class UserTaskFlowIntegrationTests(TestCase):
         # Login as user2
         login2_response = self.client.post(
             login_url,
-            {'email': 'user2@example.com', 'password': 'User2Pass123!'},
+            {'email': email2, 'password': 'User2Pass123!'},
             format='json'
         )
         
@@ -206,13 +235,26 @@ class TaskWorkflowTests(TestCase):
     def setUp(self):
         """Set up authenticated user."""
         self.client = APIClient()
+        # Clean database
+        Task.objects.all().delete()
+        Token.objects.all().delete()
+        User.objects.all().delete()
+        
+        # Create unique user
+        unique_id = uuid.uuid4().hex[:8]
         self.user = User.objects.create_user(
-            email='workflow@example.com',
-            username='workflow',
+            email=f'workflow_{unique_id}@example.com',
+            username=f'workflow_{unique_id}',
             password='WorkflowPass123!'
         )
         self.client.force_authenticate(user=self.user)
         self.tasks_url = reverse('tasks:task-list')
+
+    def tearDown(self):
+        """Clean up after each test."""
+        Task.objects.all().delete()
+        Token.objects.all().delete()
+        User.objects.all().delete()
 
     def test_task_lifecycle(self):
         """Test complete task lifecycle: TODO -> DOING -> DONE."""
