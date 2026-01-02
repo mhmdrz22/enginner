@@ -16,14 +16,28 @@ class UserTaskFlowIntegrationTests(APITestCase):
 
     def setUp(self):
         """Set up for integration tests."""
+        # DEBUG: Check initial state
+        initial_count = Task.objects.count()
+        print(f"\n[DEBUG Integration setUp] Before Delete: Found {initial_count} tasks in DB.")
+        
         # CRITICAL: Clean up any leftover data from previous tests
-        Task.objects.all().delete()
+        deleted_count, _ = Task.objects.all().delete()
+        print(f"[DEBUG Integration setUp] Deleted {deleted_count} tasks.")
+        
+        # Verify deletion
+        after_count = Task.objects.count()
+        print(f"[DEBUG Integration setUp] After Delete: Found {after_count} tasks in DB.")
+        
+        if after_count > 0:
+            titles = list(Task.objects.values_list('title', flat=True))
+            print(f"[DEBUG Integration setUp] ⚠️ ZOMBIE TASKS: {titles}")
         
         # Generate unique identifiers for this test
         self.unique_id = uuid.uuid4().hex[:8]
 
     def test_complete_user_journey(self):
         """Test full flow: register -> login -> create tasks -> manage tasks."""
+        print(f"\n[DEBUG test_complete_user_journey] Starting test...")
         
         # Step 1: Register new user with unique credentials
         register_url = reverse('accounts:register')
@@ -102,6 +116,16 @@ class UserTaskFlowIntegrationTests(APITestCase):
         # Step 4: List all tasks
         list_response = self.client.get(tasks_url)
         
+        # DEBUG
+        total_in_db = Task.objects.count()
+        print(f"[DEBUG test_complete_user_journey] Total tasks in DB: {total_in_db}")
+        print(f"[DEBUG test_complete_user_journey] API returned {len(list_response.data)} tasks")
+        
+        if len(list_response.data) != 2:
+            print(f"[DEBUG test_complete_user_journey] ❌ EXPECTED 2, GOT {len(list_response.data)}")
+            for task in list_response.data:
+                print(f"  - Task: {task.get('title', 'N/A')}")
+        
         self.assertEqual(list_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(list_response.data), 2)
         
@@ -139,6 +163,7 @@ class UserTaskFlowIntegrationTests(APITestCase):
 
     def test_user_isolation(self):
         """Test that users can only see and manage their own tasks."""
+        print(f"\n[DEBUG test_user_isolation] Starting test...")
         
         # Create two users with unique credentials
         uid1 = uuid.uuid4().hex[:8]
@@ -206,6 +231,16 @@ class UserTaskFlowIntegrationTests(APITestCase):
         # User2 lists tasks (should be empty)
         list_response = self.client.get(tasks_url)
         
+        # DEBUG
+        total_in_db = Task.objects.count()
+        print(f"[DEBUG test_user_isolation] Total tasks in DB: {total_in_db}")
+        print(f"[DEBUG test_user_isolation] API returned {len(list_response.data)} tasks for user2")
+        
+        if len(list_response.data) != 0:
+            print(f"[DEBUG test_user_isolation] ❌ EXPECTED 0, GOT {len(list_response.data)}")
+            for task in list_response.data:
+                print(f"  - Task: {task.get('title', 'N/A')}")
+        
         self.assertEqual(len(list_response.data), 0)
 
 
@@ -214,8 +249,17 @@ class TaskWorkflowTests(APITestCase):
 
     def setUp(self):
         """Set up authenticated user with unique credentials."""
+        # DEBUG: Check initial state
+        initial_count = Task.objects.count()
+        print(f"\n[DEBUG Workflow setUp] Before Delete: Found {initial_count} tasks in DB.")
+        
         # CRITICAL: Clean up any leftover data from previous tests
-        Task.objects.all().delete()
+        deleted_count, _ = Task.objects.all().delete()
+        print(f"[DEBUG Workflow setUp] Deleted {deleted_count} tasks.")
+        
+        # Verify deletion
+        after_count = Task.objects.count()
+        print(f"[DEBUG Workflow setUp] After Delete: Found {after_count} tasks in DB.")
         
         unique_id = uuid.uuid4().hex[:8]
         self.user = User.objects.create_user(
@@ -270,6 +314,7 @@ class TaskWorkflowTests(APITestCase):
 
     def test_bulk_task_creation(self):
         """Test creating multiple tasks at once."""
+        print(f"\n[DEBUG test_bulk_task_creation] Starting test...")
         
         task_titles = [
             'Task 1',
@@ -289,10 +334,20 @@ class TaskWorkflowTests(APITestCase):
         
         # Verify all created
         list_response = self.client.get(self.tasks_url)
+        
+        # DEBUG
+        total_in_db = Task.objects.count()
+        print(f"[DEBUG test_bulk_task_creation] Total tasks in DB: {total_in_db}")
+        print(f"[DEBUG test_bulk_task_creation] API returned {len(list_response.data)} tasks")
+        
+        if len(list_response.data) != 5:
+            print(f"[DEBUG test_bulk_task_creation] ❌ EXPECTED 5, GOT {len(list_response.data)}")
+        
         self.assertEqual(len(list_response.data), 5)
 
     def test_priority_based_workflow(self):
         """Test tasks with different priorities."""
+        print(f"\n[DEBUG test_priority_based_workflow] Starting test...")
         
         # Create tasks with different priorities
         Task.objects.create(
@@ -313,6 +368,18 @@ class TaskWorkflowTests(APITestCase):
         
         # Filter high priority tasks
         response = self.client.get(f'{self.tasks_url}?priority=HIGH')
+        
+        # DEBUG
+        total_in_db = Task.objects.count()
+        high_in_db = Task.objects.filter(user=self.user, priority='HIGH').count()
+        print(f"[DEBUG test_priority_based_workflow] Total tasks in DB: {total_in_db}")
+        print(f"[DEBUG test_priority_based_workflow] HIGH priority in DB: {high_in_db}")
+        print(f"[DEBUG test_priority_based_workflow] API returned {len(response.data)} tasks")
+        
+        if len(response.data) != 1:
+            print(f"[DEBUG test_priority_based_workflow] ❌ EXPECTED 1, GOT {len(response.data)}")
+            for task in response.data:
+                print(f"  - Task: {task.get('title', 'N/A')} (priority: {task.get('priority', 'N/A')})")
         
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['title'], 'High Priority')
