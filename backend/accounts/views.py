@@ -14,9 +14,7 @@ User = get_user_model()
 
 
 class RegisterView(generics.CreateAPIView):
-    """
-    User registration endpoint.
-    """
+    """User registration endpoint."""
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
@@ -33,9 +31,7 @@ class RegisterView(generics.CreateAPIView):
 
 
 class LoginView(APIView):
-    """
-    User login endpoint.
-    """
+    """User login endpoint."""
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
@@ -76,10 +72,26 @@ class LoginView(APIView):
         })
 
 
+class LogoutView(APIView):
+    """User logout endpoint - deletes the auth token."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        try:
+            # Delete the user's token
+            request.user.auth_token.delete()
+            return Response({
+                'message': 'Successfully logged out'
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
 class ProfileView(generics.RetrieveUpdateAPIView):
-    """
-    Get or update user profile.
-    """
+    """Get or update user profile."""
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -88,8 +100,7 @@ class ProfileView(generics.RetrieveUpdateAPIView):
 
 
 class AdminOverviewView(APIView):
-    """
-    Admin endpoint to get overview of users and their tasks.
+    """Admin endpoint to get overview of users and their tasks.
     Only accessible by staff/superuser.
     """
     permission_classes = [permissions.IsAdminUser]
@@ -115,8 +126,7 @@ class AdminOverviewView(APIView):
 
 
 class AdminNotifyView(APIView):
-    """
-    Admin endpoint to send email notifications to users.
+    """Admin endpoint to send email notifications to users.
     Only accessible by staff/superuser.
     """
     permission_classes = [permissions.IsAdminUser]
