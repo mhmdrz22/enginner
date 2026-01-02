@@ -1,16 +1,20 @@
 version: '3.9'
 
 services:
+  # Test Database - Using tmpfs for speed
   test-db:
     image: postgres:15-alpine
-    container_name: taskboard_test_db
+    container_name: enginner-test-db
     environment:
-      POSTGRES_DB: test_taskboard_db
+      POSTGRES_DB: test_enginner
       POSTGRES_USER: test_user
       POSTGRES_PASSWORD: test_password
+      # Optimize for testing
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
     ports:
       - "5433:5432"
     tmpfs:
+      # Use RAM for database - much faster for tests
       - /var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U test_user"]
@@ -18,51 +22,88 @@ services:
       timeout: 3s
       retries: 5
     networks:
-      - test_network
+      - test-network
 
+  # Test Redis
   test-redis:
     image: redis:7-alpine
-    container_name: taskboard_test_redis
+    container_name: enginner-test-redis
     ports:
       - "6380:6379"
+    tmpfs:
+      # Use RAM for Redis data
+      - /data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
     networks:
-      - test_network
+      - test-network
 
-  test-backend:
+  # Backend Test Runner
+  backend-test:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: taskboard_test_backend
+      target: development
+    container_name: enginner-backend-test
     command: >
-      sh -c "python manage.py migrate --noinput &&
-             pytest --cov=. --cov-report=html --cov-report=term"
+      sh -c "
+        echo 'Waiting for database...' &&
+        python manage.py wait_for_db &&
+        echo 'Running migrations...' &&
+        python manage.py migrate --no-input &&
+        echo 'Running tests...' &&
+        pytest --cov=. --cov-report=html --cov-report=term --cov-report=xml
+      "
     environment:
-      - DEBUG=True
-      - DATABASE_URL=postgresql://test_user:test_password@test-db:5432/test_taskboard_db
-      - CELERY_BROKER_URL=redis://test-redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://test-redis:6379/1
-      - SECRET_KEY=test-secret-key-for-testing-only-not-for-production
-      - ALLOWED_HOSTS=*
-      - DJANGO_SETTINGS_MODULE=config.settings
+      # Test environment variables
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      DATABASE_URL: postgresql://test_user:test_password@test-db:5432/test_enginner
+      REDIS_URL: redis://test-redis:6379/0
+      SECRET_KEY: test-secret-key-for-testing-only-not-for-production
+      DEBUG: "False"
+      ALLOWED_HOSTS: localhost,127.0.0.1,testserver
+      # Test-specific settings
+      CELERY_TASK_ALWAYS_EAGER: "True"
+      EMAIL_BACKEND: django.core.mail.backends.console.EmailBackend
+    volumes:
+      - ./backend:/app
+      - test-coverage:/app/htmlcov
     depends_on:
       test-db:
         condition: service_healthy
       test-redis:
         condition: service_healthy
-    volumes:
-      - ./backend:/app
-      - test_coverage:/app/htmlcov
     networks:
-      - test_network
+      - test-network
+
+  # Frontend Test Runner
+  frontend-test:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: enginner-frontend-test
+    command: npm run test:coverage
+    environment:
+      NODE_ENV: test
+      CI: "true"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - frontend-test-coverage:/app/coverage
+    networks:
+      - test-network
 
 volumes:
-  test_coverage:
+  test-coverage:
+    name: enginner-test-coverage
+  frontend-test-coverage:
+    name: enginner-frontend-test-coverage
 
 networks:
-  test_network:
+  test-network:
+    name: enginner-test-network
     driver: bridge
