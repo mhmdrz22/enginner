@@ -1,6 +1,6 @@
 """Tests for task views and API endpoints."""
 
-from django.test import TestCase
+from django.test import TransactionTestCase
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -14,8 +14,10 @@ from tasks.models import Task
 User = get_user_model()
 
 
-class TaskAPITests(TestCase):
+class TaskAPITests(TransactionTestCase):
     """Test suite for Task API endpoints."""
+    
+    reset_sequences = True
 
     def setUp(self):
         """Set up test client and data."""
@@ -51,9 +53,6 @@ class TaskAPITests(TestCase):
 
     def test_list_tasks_authenticated(self):
         """Test authenticated user can list their tasks."""
-        # Clear any existing tasks
-        Task.objects.all().delete()
-        
         # Create tasks for user1
         Task.objects.create(user=self.user1, title='Task 1')
         Task.objects.create(user=self.user1, title='Task 2')
@@ -204,9 +203,6 @@ class TaskAPITests(TestCase):
 
     def test_filter_tasks_by_status(self):
         """Test filtering tasks by status."""
-        # Clear any existing tasks
-        Task.objects.all().delete()
-        
         Task.objects.create(user=self.user1, title='Todo', status='TODO')
         Task.objects.create(user=self.user1, title='Doing', status='DOING')
         Task.objects.create(user=self.user1, title='Done', status='DONE')
@@ -220,9 +216,6 @@ class TaskAPITests(TestCase):
 
     def test_filter_tasks_by_priority(self):
         """Test filtering tasks by priority."""
-        # Clear any existing tasks
-        Task.objects.all().delete()
-        
         Task.objects.create(user=self.user1, title='Low', priority='LOW')
         Task.objects.create(user=self.user1, title='High', priority='HIGH')
         
