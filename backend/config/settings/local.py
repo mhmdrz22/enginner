@@ -17,6 +17,16 @@ CORS_ALLOW_ALL_ORIGINS = True
 # Email - Print to console instead of sending
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
+# Database - Ensure no SSL for local Docker Postgres
+if 'default' in DATABASES and 'OPTIONS' not in DATABASES['default']:
+    DATABASES['default']['OPTIONS'] = {}
+
+# Clear any SSL requirements from base settings
+if 'default' in DATABASES and 'OPTIONS' in DATABASES['default']:
+    # Remove SSL-related options if they exist
+    DATABASES['default']['OPTIONS'].pop('sslmode', None)
+    DATABASES['default']['OPTIONS'].pop('ssl_require', None)
+
 # Logging - More verbose in development
 LOGGING = {
     'version': 1,
@@ -34,6 +44,11 @@ LOGGING = {
         'django': {
             'handlers': ['console'],
             'level': 'INFO',
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': ['console'],
+            'level': 'DEBUG',  # Show SQL queries in development
             'propagate': False,
         },
     },

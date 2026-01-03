@@ -48,7 +48,7 @@ if SECRET_KEY == 'django-insecure-change-me-in-production':
         "Generate with: python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'"
     )
 
-# Logging - Production logging configuration
+# Logging - Console-based for Docker (not file-based)
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -57,43 +57,34 @@ LOGGING = {
             'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
             'style': '{',
         },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
     },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
-        'file': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': BASE_DIR / 'logs' / 'django.log',
-            'maxBytes': 1024 * 1024 * 10,  # 10 MB
-            'backupCount': 5,
-            'formatter': 'verbose',
-        },
     },
     'root': {
-        'handlers': ['console', 'file'],
+        'handlers': ['console'],
         'level': 'INFO',
     },
     'loggers': {
         'django': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console'],
             'level': 'INFO',
             'propagate': False,
         },
         'django.security': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console'],
             'level': 'WARNING',
             'propagate': False,
         },
     },
 }
-
-# Create logs directory if it doesn't exist
-import os
-log_dir = BASE_DIR / 'logs'
-if not os.path.exists(log_dir):
-    os.makedirs(log_dir)
 
 # Email - Use real SMTP in production
 if os.environ.get('EMAIL_HOST'):
@@ -108,10 +99,20 @@ else:
     # Fallback to console backend if email not configured
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-# Database - Ensure proper configuration
+# Database - Conditional SSL based on environment
 if 'default' in DATABASES:
     # Enable connection pooling in production
     DATABASES['default']['CONN_MAX_AGE'] = 600
-    DATABASES['default']['OPTIONS'] = {
-        'connect_timeout': 10,
-    }
+    
+    # Only use SSL if explicitly enabled (for managed DB services like AWS RDS)
+    # Docker Postgres doesn't have SSL by default
+    if os.environ.get('DB_USE_SSL', 'False') == 'True':
+        DATABASES['default']['OPTIONS'] = {
+            'sslmode': 'require',
+            'connect_timeout': 10,
+        }
+    else:
+        # Docker/local Postgres without SSL
+        DATABASES['default']['OPTIONS'] = {
+            'connect_timeout': 10,
+        }
