@@ -19,7 +19,7 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route
               path="/dashboard"
-              element="
+              element={
                 <PrivateRoute>
                   <Dashboard />
                 </PrivateRoute>
