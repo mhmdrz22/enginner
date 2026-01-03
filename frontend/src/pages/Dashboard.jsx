@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { tasksAPI } from '../api/tasks';
 import TaskList from '../components/TaskList';
 import TaskForm from '../components/TaskForm';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
@@ -11,6 +12,7 @@ const Dashboard = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [filter, setFilter] = useState('all');
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
   
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -56,13 +58,17 @@ const Dashboard = () => {
   };
 
   const handleDeleteTask = async (id) => {
-    if (window.confirm('Are you sure you want to delete this task?')) {
-      try {
-        await tasksAPI.deleteTask(id);
-        fetchTasks();
-      } catch (error) {
-        console.error('Error deleting task:', error);
-      }
+    setDeleteConfirm(id);
+  };
+
+  const confirmDelete = async () => {
+    try {
+      await tasksAPI.deleteTask(deleteConfirm);
+      fetchTasks();
+    } catch (error) {
+      console.error('Error deleting task:', error);
+    } finally {
+      setDeleteConfirm(null);
     }
   };
 
@@ -207,6 +213,16 @@ const Dashboard = () => {
               setShowForm(false);
               setEditingTask(null);
             }}
+          />
+        )}
+
+        {/* Delete Confirmation Dialog */}
+        {deleteConfirm && (
+          <ConfirmDialog
+            title="Delete Task"
+            message="Are you sure you want to delete this task? This action cannot be undone."
+            onConfirm={confirmDelete}
+            onCancel={() => setDeleteConfirm(null)}
           />
         )}
 
