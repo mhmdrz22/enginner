@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNotification } from '../context/NotificationContext';
 import { tasksAPI } from '../api/tasks';
 import TaskList from '../components/TaskList';
 import TaskForm from '../components/TaskForm';
@@ -16,6 +17,7 @@ const Dashboard = () => {
   
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { notify } = useNotification();
 
   useEffect(() => {
     fetchTasks();
@@ -29,6 +31,7 @@ const Dashboard = () => {
       setTasks(response.data);
     } catch (error) {
       console.error('Error fetching tasks:', error);
+      notify('Failed to load tasks', 'error');
     } finally {
       setLoading(false);
     }
@@ -39,8 +42,10 @@ const Dashboard = () => {
       await tasksAPI.createTask(taskData);
       setShowForm(false);
       fetchTasks();
+      notify('Task created successfully!', 'success');
     } catch (error) {
       console.error('Error creating task:', error);
+      notify('Failed to create task', 'error');
       throw error;
     }
   };
@@ -51,8 +56,10 @@ const Dashboard = () => {
       setEditingTask(null);
       setShowForm(false);
       fetchTasks();
+      notify('Task updated successfully!', 'success');
     } catch (error) {
       console.error('Error updating task:', error);
+      notify('Failed to update task', 'error');
       throw error;
     }
   };
@@ -65,8 +72,10 @@ const Dashboard = () => {
     try {
       await tasksAPI.deleteTask(deleteConfirm);
       fetchTasks();
+      notify('Task deleted successfully', 'success');
     } catch (error) {
       console.error('Error deleting task:', error);
+      notify('Failed to delete task', 'error');
     } finally {
       setDeleteConfirm(null);
     }

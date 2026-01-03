@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useNotification } from '../context/NotificationContext';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -14,6 +15,7 @@ const Register = () => {
   
   const { register } = useAuth();
   const navigate = useNavigate();
+  const { notify } = useNotification();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -25,6 +27,7 @@ const Register = () => {
 
     if (formData.password !== formData.password2) {
       setError('Passwords do not match');
+      notify('Passwords do not match', 'error');
       return;
     }
 
@@ -32,15 +35,19 @@ const Register = () => {
 
     try {
       await register(formData);
-      alert('Registration successful! Please login.');
-      navigate('/login');
+      notify('Registration successful! Redirecting to login...', 'success');
+      setTimeout(() => {
+        navigate('/login');
+      }, 1500);
     } catch (err) {
       const errors = err.response?.data;
       if (errors) {
         const errorMsg = Object.values(errors).flat().join(' ');
         setError(errorMsg);
+        notify(errorMsg || 'Registration failed', 'error');
       } else {
         setError('Registration failed. Please try again.');
+        notify('Registration failed. Please try again.', 'error');
       }
     } finally {
       setLoading(false);
