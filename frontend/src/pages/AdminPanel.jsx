@@ -32,7 +32,8 @@ const AdminPanel = () => {
   const fetchOverview = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('/accounts/admin/overview/');
+      // Updated URL to /api/admin/overview/
+      const response = await axios.get('/admin/overview/');
       setUsers(response.data.users);
     } catch (error) {
       console.error('Error fetching overview:', error);
@@ -78,7 +79,8 @@ const AdminPanel = () => {
         .filter(u => selectedUsers.includes(u.id))
         .map(u => u.email);
 
-      const response = await axios.post('/accounts/admin/notify/', {
+      // Updated URL to /api/admin/notify/
+      const response = await axios.post('/admin/notify/', {
         recipients: selectedEmails,
         subject: subject,
         message: message
