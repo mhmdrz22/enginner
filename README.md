@@ -17,6 +17,7 @@
 - **[CI/CD Troubleshooting](CI_CD_TROUBLESHOOTING.md)** - رفع مشکلات Pipeline
 - **[Security Checklist](SECURITY.md)** - چک‌لیست امنیتی
 - **[Setup Guide](SETUP_GUIDE.md)** - راهنمای نصب کامل
+- **[API Endpoints](backend/API_ENDPOINTS.md)** - مستندات کامل API
 
 ---
 
@@ -128,7 +129,7 @@ enginner/
 │   └── Dockerfile         # Frontend Docker image
 ├── .github/
 │   └── workflows/
-│       └── ci-cd.yml      # CI/CD pipeline
+│       └── production-pipeline.yml  # CI/CD pipeline
 ├── docker-compose.yml      # Development setup
 ├── docker-compose.test.yml # Testing environment
 ├── docker-compose.prod.yml # Production setup
@@ -145,6 +146,7 @@ enginner/
 
 - **Swagger UI:** http://localhost:8000/swagger/
 - **ReDoc:** http://localhost:8000/redoc/
+- **Complete Docs:** [backend/API_ENDPOINTS.md](backend/API_ENDPOINTS.md)
 
 ### Main Endpoints
 
@@ -167,8 +169,8 @@ DELETE /api/tasks/{id}/           - Delete task
 
 #### Admin Panel
 ```
-GET    /api/accounts/admin/overview/   - Get users & stats (Admin only)
-POST   /api/accounts/admin/notify/     - Send email notifications (Admin only)
+GET    /api/admin/overview/       - Get users & stats (Admin only)
+POST   /api/admin/notify/         - Send email notifications (Admin only)
 ```
 
 ---
@@ -264,6 +266,15 @@ git commit -m "message" --no-verify
 ---
 
 ## 🌐 Deployment
+
+### Docker Images
+
+After pushing to GitHub, Docker images are automatically built and pushed to GitHub Container Registry:
+
+```
+ghcr.io/mhmdrz22/enginner-backend:latest
+ghcr.io/mhmdrz22/enginner-frontend:latest
+```
 
 ### Environment Variables
 
@@ -372,7 +383,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - ✅ Pre-commit hooks active
 - ✅ Security scanning enabled
 - ✅ Tests with 85%+ coverage
-- ⏳ Production deployment pending
+- ✅ Admin API endpoints fixed
+- 🚀 Ready for production deployment
 
 ---
 
