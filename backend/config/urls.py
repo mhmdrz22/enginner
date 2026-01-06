@@ -3,6 +3,7 @@ from django.urls import path, include, re_path
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
+from accounts.views import AdminOverviewView, AdminNotifyView
 
 # Swagger/ReDoc configuration
 schema_view = get_schema_view(
@@ -24,6 +25,10 @@ urlpatterns = [
     # API endpoints
     path('api/accounts/', include('accounts.urls')),
     path('api/tasks/', include('tasks.urls')),
+    
+    # Admin API endpoints (directly under /api/admin/)
+    path('api/admin/overview/', AdminOverviewView.as_view(), name='admin-overview'),
+    path('api/admin/notify/', AdminNotifyView.as_view(), name='admin-notify'),
     
     # API Documentation
     re_path(r'^swagger(?P<format>\.json|\.yaml)$', 
