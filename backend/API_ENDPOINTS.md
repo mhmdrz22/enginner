@@ -110,9 +110,24 @@ http://localhost:8000/api
 - **Auth Required:** Yes
 - **Headers:** `Authorization: Token <token>`
 - **Query Parameters:**
-  - `status`: Filter by status (open, in_progress, completed)
-  - `priority`: Filter by priority (low, medium, high)
+  - `status`: Filter by status (`TODO`, `DOING`, `DONE`)
+  - `priority`: Filter by priority (`LOW`, `MEDIUM`, `HIGH`)
   - `search`: Search in title and description
+- **Response:**
+  ```json
+  [
+    {
+      "id": "integer",
+      "title": "string",
+      "description": "string",
+      "status": "TODO|DOING|DONE",
+      "priority": "LOW|MEDIUM|HIGH",
+      "due_date": "YYYY-MM-DD",
+      "created_at": "datetime",
+      "updated_at": "datetime"
+    }
+  ]
+  ```
 
 ### Create Task
 - **URL:** `/api/tasks/`
@@ -124,17 +139,34 @@ http://localhost:8000/api
   {
     "title": "string",
     "description": "string",
-    "priority": "low|medium|high",
-    "status": "open|in_progress|completed",
+    "priority": "LOW|MEDIUM|HIGH",
+    "status": "TODO|DOING|DONE",
     "due_date": "YYYY-MM-DD" (optional)
   }
   ```
+- **Default Values:**
+  - `status`: `TODO`
+  - `priority`: `MEDIUM`
 
 ### Get Task Detail
 - **URL:** `/api/tasks/{id}/`
 - **Method:** `GET`
 - **Auth Required:** Yes
 - **Headers:** `Authorization: Token <token>`
+- **Response:**
+  ```json
+  {
+    "id": "integer",
+    "title": "string",
+    "description": "string",
+    "status": "TODO|DOING|DONE",
+    "priority": "LOW|MEDIUM|HIGH",
+    "due_date": "YYYY-MM-DD",
+    "created_at": "datetime",
+    "updated_at": "datetime",
+    "is_overdue": "boolean"
+  }
+  ```
 
 ### Update Task
 - **URL:** `/api/tasks/{id}/`
@@ -148,6 +180,7 @@ http://localhost:8000/api
 - **Method:** `DELETE`
 - **Auth Required:** Yes
 - **Headers:** `Authorization: Token <token>`
+- **Response:** `204 No Content`
 
 ## API Documentation
 
@@ -163,6 +196,20 @@ http://localhost:8000/api
 - **URL:** `/swagger.json`
 - **Description:** OpenAPI JSON schema
 
+## Status Values
+
+Task status must be one of the following (case-sensitive uppercase):
+- `TODO` - Task is not started
+- `DOING` - Task is in progress
+- `DONE` - Task is completed
+
+## Priority Values
+
+Task priority must be one of the following (case-sensitive uppercase):
+- `LOW` - Low priority
+- `MEDIUM` - Medium priority (default)
+- `HIGH` - High priority
+
 ## Notes
 
 - All endpoints return JSON responses
@@ -170,3 +217,5 @@ http://localhost:8000/api
 - Admin endpoints require `is_staff=True` or `is_superuser=True`
 - Email notifications are processed asynchronously using Celery
 - Markdown is supported in email messages
+- All datetime fields are in ISO 8601 format
+- Users can only access their own tasks (except admins)
