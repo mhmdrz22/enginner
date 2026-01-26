@@ -2,7 +2,7 @@
 
 > A complete full-stack task management application built with Django REST Framework and React, featuring authentication, real-time updates, and async email notifications.
 
-[![CI/CD](https://github.com/mhmdrz22/enginner/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/mhmdrz22/enginner/actions)
+[![CI/CD](https://github.com/mhmdrz22/enginner/actions/workflows/production-pipeline.yml/badge.svg)](https://github.com/mhmdrz22/enginner/actions)
 [![codecov](https://codecov.io/gh/mhmdrz22/enginner/branch/main/graph/badge.svg)](https://codecov.io/gh/mhmdrz22/enginner)
 [![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
 [![Django](https://img.shields.io/badge/Django-4.2-green.svg)](https://www.djangoproject.com/)
@@ -17,6 +17,7 @@
 - **[CI/CD Troubleshooting](CI_CD_TROUBLESHOOTING.md)** - رفع مشکلات Pipeline
 - **[Security Checklist](SECURITY.md)** - چک‌لیست امنیتی
 - **[Setup Guide](SETUP_GUIDE.md)** - راهنمای نصب کامل
+- **[Docker Setup](DOCKER_SETUP.md)** - راهنمای Docker
 - **[API Endpoints](backend/API_ENDPOINTS.md)** - مستندات کامل API
 
 ---
@@ -27,7 +28,7 @@
 - ✅ **User Authentication** - Email-based registration and login with token auth
 - ✅ **Task Management** - CRUD operations for tasks with status tracking
 - ✅ **User Isolation** - Each user can only see and manage their own tasks
-- ✅ **Priority & Status** - Organize tasks by priority (HIGH/MEDIUM/LOW) and status (TODO/DOING/DONE)
+- ✅ **Priority & Status** - Organize tasks by priority (LOW/MEDIUM/HIGH) and status (TODO/DOING/DONE)
 - ✅ **Responsive UI** - Modern React interface with Tailwind CSS
 
 ### Admin Panel
@@ -42,7 +43,7 @@
 - ✅ **Pre-commit Hooks** - Code quality checks before commits
 - ✅ **Security Scanning** - Trivy, Bandit, Safety checks
 - ✅ **API Documentation** - Interactive Swagger/ReDoc docs
-- ✅ **90+ Tests** - Comprehensive test coverage
+- ✅ **90+ Tests** - Comprehensive test coverage (85%+)
 
 ---
 
@@ -122,19 +123,26 @@ enginner/
 │   ├── tasks/             # Task management
 │   ├── config/            # Django settings & config
 │   ├── requirements.txt   # Python dependencies
+│   ├── API_ENDPOINTS.md   # API documentation
 │   └── Dockerfile         # Backend Docker image
 ├── frontend/               # React frontend
 │   ├── src/               # Source code
 │   ├── package.json       # Node dependencies
 │   └── Dockerfile         # Frontend Docker image
+├── nginx/                  # Nginx configuration
+│   └── nginx.conf         # Reverse proxy config
+├── scripts/                # Helper scripts
+│   └── wait-for-it.sh     # Service readiness script
 ├── .github/
 │   └── workflows/
 │       └── production-pipeline.yml  # CI/CD pipeline
 ├── docker-compose.yml      # Development setup
+├── docker-compose.local.yml # Local development
 ├── docker-compose.test.yml # Testing environment
 ├── docker-compose.prod.yml # Production setup
 ├── Makefile                # Useful commands
 ├── .pre-commit-config.yaml # Code quality hooks
+├── DOCKER_SETUP.md         # Docker setup guide
 └── README.md               # This file
 ```
 
@@ -156,6 +164,7 @@ POST   /api/accounts/register/    - User registration
 POST   /api/accounts/login/       - User login
 GET    /api/accounts/profile/     - Get user profile
 PATCH  /api/accounts/profile/     - Update profile
+POST   /api/accounts/logout/      - User logout
 ```
 
 #### Tasks
@@ -172,6 +181,9 @@ DELETE /api/tasks/{id}/           - Delete task
 GET    /api/admin/overview/       - Get users & stats (Admin only)
 POST   /api/admin/notify/         - Send email notifications (Admin only)
 ```
+
+**Note:** Task Status values are: `TODO`, `DOING`, `DONE` (uppercase)  
+**Note:** Task Priority values are: `LOW`, `MEDIUM`, `HIGH` (uppercase)
 
 ---
 
@@ -350,7 +362,7 @@ See [SECURITY.md](SECURITY.md) for complete security guidelines.
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GPL-3.0 License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
@@ -383,7 +395,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - ✅ Pre-commit hooks active
 - ✅ Security scanning enabled
 - ✅ Tests with 85%+ coverage
-- ✅ Admin API endpoints fixed
+- ✅ Admin API endpoints functional
 - 🚀 Ready for production deployment
 
 ---
