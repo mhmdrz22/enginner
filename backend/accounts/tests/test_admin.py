@@ -19,18 +19,20 @@ class AdminOverviewTests(TestCase):
         uid_user = uuid.uuid4().hex[:8]
         uid_admin = uuid.uuid4().hex[:8]
         
-        # Create regular user
+        # Create regular user (removed username field)
         self.user = User.objects.create_user(
             email=f'user_{uid_user}@example.com',
-            username=f'user_{uid_user}',
-            password='UserPass123!'
+            password='UserPass123!',
+            first_name='Test',
+            last_name='User'
         )
         
-        # Create admin user
+        # Create admin user (removed username field)
         self.admin = User.objects.create_superuser(
             email=f'admin_{uid_admin}@example.com',
-            username=f'admin_{uid_admin}',
-            password='AdminPass123!'
+            password='AdminPass123!',
+            first_name='Admin',
+            last_name='User'
         )
         
         # Create tasks for user
@@ -47,19 +49,19 @@ class AdminOverviewTests(TestCase):
 
     def test_overview_requires_authentication(self):
         """Test that overview endpoint requires authentication."""
-        response = self.client.get('/api/accounts/admin/overview/')
+        response = self.client.get('/api/admin/overview/')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_overview_requires_admin(self):
         """Test that regular user cannot access overview."""
         self.client.force_authenticate(user=self.user)
-        response = self.client.get('/api/accounts/admin/overview/')
+        response = self.client.get('/api/admin/overview/')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_overview_success_for_admin(self):
         """Test that admin can access overview."""
         self.client.force_authenticate(user=self.admin)
-        response = self.client.get('/api/accounts/admin/overview/')
+        response = self.client.get('/api/admin/overview/')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('users', response.data)
@@ -69,7 +71,7 @@ class AdminOverviewTests(TestCase):
     def test_overview_includes_user_data(self):
         """Test that overview includes correct user data."""
         self.client.force_authenticate(user=self.admin)
-        response = self.client.get('/api/accounts/admin/overview/')
+        response = self.client.get('/api/admin/overview/')
         
         users = response.data['users']
         user_data = next((u for u in users if u['email'] == self.user.email), None)
@@ -81,7 +83,7 @@ class AdminOverviewTests(TestCase):
     def test_overview_structure(self):
         """Test that overview returns correct data structure."""
         self.client.force_authenticate(user=self.admin)
-        response = self.client.get('/api/accounts/admin/overview/')
+        response = self.client.get('/api/admin/overview/')
         
         self.assertIsInstance(response.data['users'], list)
         
@@ -89,7 +91,8 @@ class AdminOverviewTests(TestCase):
             user = response.data['users'][0]
             self.assertIn('id', user)
             self.assertIn('email', user)
-            self.assertIn('username', user)
+            self.assertIn('first_name', user)
+            self.assertIn('last_name', user)
             self.assertIn('total_tasks', user)
             self.assertIn('open_tasks', user)
 
@@ -104,30 +107,32 @@ class AdminNotifyTests(TestCase):
         uid_user = uuid.uuid4().hex[:8]
         uid_admin = uuid.uuid4().hex[:8]
         
-        # Create regular user
+        # Create regular user (removed username field)
         self.user = User.objects.create_user(
             email=f'user_{uid_user}@example.com',
-            username=f'user_{uid_user}',
-            password='UserPass123!'
+            password='UserPass123!',
+            first_name='Test',
+            last_name='User'
         )
         
-        # Create admin user
+        # Create admin user (removed username field)
         self.admin = User.objects.create_superuser(
             email=f'admin_{uid_admin}@example.com',
-            username=f'admin_{uid_admin}',
-            password='AdminPass123!'
+            password='AdminPass123!',
+            first_name='Admin',
+            last_name='User'
         )
 
     def test_notify_requires_authentication(self):
         """Test that notify endpoint requires authentication."""
-        response = self.client.post('/api/accounts/admin/notify/', {})
+        response = self.client.post('/api/admin/notify/', {})
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_notify_requires_admin(self):
         """Test that regular user cannot send notifications."""
         self.client.force_authenticate(user=self.user)
         uid = uuid.uuid4().hex[:8]
-        response = self.client.post('/api/accounts/admin/notify/', {
+        response = self.client.post('/api/admin/notify/', {
             'recipients': [f'test_{uid}@example.com'],
             'message': 'Test message'
         })
@@ -141,7 +146,7 @@ class AdminNotifyTests(TestCase):
         self.client.force_authenticate(user=self.admin)
         uid1 = uuid.uuid4().hex[:8]
         uid2 = uuid.uuid4().hex[:8]
-        response = self.client.post('/api/accounts/admin/notify/', {
+        response = self.client.post('/api/admin/notify/', {
             'recipients': [f'user1_{uid1}@example.com', f'user2_{uid2}@example.com'],
             'subject': 'Test Subject',
             'message': 'Test message'
@@ -158,7 +163,7 @@ class AdminNotifyTests(TestCase):
     def test_notify_requires_recipients(self):
         """Test that recipients are required."""
         self.client.force_authenticate(user=self.admin)
-        response = self.client.post('/api/accounts/admin/notify/', {
+        response = self.client.post('/api/admin/notify/', {
             'message': 'Test message'
         })
         
@@ -169,7 +174,7 @@ class AdminNotifyTests(TestCase):
         """Test that message is required."""
         self.client.force_authenticate(user=self.admin)
         uid = uuid.uuid4().hex[:8]
-        response = self.client.post('/api/accounts/admin/notify/', {
+        response = self.client.post('/api/admin/notify/', {
             'recipients': [f'test_{uid}@example.com']
         })
         
@@ -179,7 +184,7 @@ class AdminNotifyTests(TestCase):
     def test_notify_with_empty_recipients(self):
         """Test that empty recipients list is rejected."""
         self.client.force_authenticate(user=self.admin)
-        response = self.client.post('/api/accounts/admin/notify/', {
+        response = self.client.post('/api/admin/notify/', {
             'recipients': [],
             'message': 'Test message'
         })
