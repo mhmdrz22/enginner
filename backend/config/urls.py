@@ -11,6 +11,7 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
+from accounts.views import AdminOverviewView, AdminNotifyView
 
 schema_view = get_schema_view(
     openapi.Info(
@@ -32,6 +33,10 @@ urlpatterns = [
     path('api/accounts/', include('accounts.urls')),
     path('api/tasks/', include('tasks.urls')),
     
+    # Admin API endpoints
+    path('api/admin/overview/', AdminOverviewView.as_view(), name='admin-overview'),
+    path('api/admin/notify/', AdminNotifyView.as_view(), name='admin-notify'),
+
     # JWT Authentication
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
@@ -40,7 +45,7 @@ urlpatterns = [
     path('swagger<format>/', schema_view.without_ui(cache_timeout=0), name='schema-json'),
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
-    
+
     # Spectacular Documentation
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),

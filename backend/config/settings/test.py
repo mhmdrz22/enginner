@@ -25,9 +25,16 @@ CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 # Database - Use PostgreSQL (same as production)
+# Ensure we prioritize the environment variables for host/port if set, defaulting to localhost if not.
+_postgres_user = urllib.parse.quote_plus(os.environ.get('POSTGRES_USER', 'postgres'))
+_postgres_password = urllib.parse.quote_plus(os.environ.get('POSTGRES_PASSWORD', 'postgres'))
+_postgres_host = os.environ.get('POSTGRES_HOST', 'localhost')
+_postgres_port = os.environ.get('POSTGRES_PORT', '5432')
+_postgres_db = os.environ.get('POSTGRES_DB', 'test_taskboard')
+
 DATABASES = {
     'default': dj_database_url.config(
-        default=f"postgres://{urllib.parse.quote_plus(os.environ.get('POSTGRES_USER', 'postgres'))}:{urllib.parse.quote_plus(os.environ.get('POSTGRES_PASSWORD', 'postgres'))}@{os.environ.get('POSTGRES_HOST', 'localhost')}:{os.environ.get('POSTGRES_PORT', '5432')}/{os.environ.get('POSTGRES_DB', 'test_taskboard')}",
+        default=f"postgres://{_postgres_user}:{_postgres_password}@{_postgres_host}:{_postgres_port}/{_postgres_db}",
         conn_max_age=0,
     )
 }
