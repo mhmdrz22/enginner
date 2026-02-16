@@ -3,6 +3,7 @@
 Optimized for fast test execution.
 Use: DJANGO_SETTINGS_MODULE=config.settings.test
 """
+import os
 from .base import *
 
 # Debug off for testing (closer to production)
@@ -11,11 +12,49 @@ DEBUG = False
 # Mark that we're in testing mode
 TESTING = True
 
+# Secret key - Allow override from environment for CI
+SECRET_KEY = os.environ.get('SECRET_KEY', 'test-secret-key-do-not-use-in-production-' + 'x' * 50)
+
 # Allow all hosts for testing
-ALLOWED_HOSTS = ['*', 'testserver']
+ALLOWED_HOSTS = ['*', 'testserver', 'localhost', '127.0.0.1']
 
 # CORS - Allow all for testing
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+
+# Database - Use in-memory SQLite for much faster tests
+# Override with PostgreSQL if POSTGRES_DB is set (for integration tests)
+if os.environ.get('USE_POSTGRES_FOR_TESTS') == 'true':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('POSTGRES_DB', 'test_taskboard'),
+            'USER': os.environ.get('POSTGRES_USER', 'postgres'),
+            'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'postgres'),
+            'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
+            'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+            'TEST': {
+                'NAME': 'test_taskboard_test',
+            },
+        }
+    }
+else:
+    # Default to SQLite in-memory for speed
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:',
+            'ATOMIC_REQUESTS': True,
+        }
+    }
+
+# Cache - Use local memory cache for tests
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'test-cache',
+    }
+}
 
 # Use faster password hasher for tests (dramatically speeds up user creation)
 PASSWORD_HASHERS = [
@@ -29,34 +68,41 @@ EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
 
-# Disable migrations for faster test database creation
-# Uncomment if you want even faster tests
-# class DisableMigrations:
-#     def __contains__(self, item):
-#         return True
-#     def __getitem__(self, item):
-#         return None
-# MIGRATION_MODULES = DisableMigrations()
+# Static files - Use default for tests
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles_test')
 
-# Optional: Use SQLite for faster tests (if not testing PostgreSQL-specific features)
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': ':memory:',
-#     }
-# }
+# Media files - Use temporary directory
+MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles_test')
 
-# Logging - Minimal logging in tests
+# Logging - Minimal logging in tests (only errors)
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': True,
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
+            'level': 'ERROR',
         },
     },
     'root': {
         'handlers': ['console'],
-        'level': 'ERROR',  # Only show errors
+        'level': 'ERROR',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
     },
 }
+
+# Security - Disable for faster tests
+SECURE_SSL_REDIRECT = False
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
