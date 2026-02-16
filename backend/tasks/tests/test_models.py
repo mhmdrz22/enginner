@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
 from tasks.models import Task
+from .helpers import create_task_with_past_due_date
 
 
 User = get_user_model()
@@ -23,8 +24,9 @@ class TaskModelTests(TestCase):
         unique_id = uuid.uuid4().hex[:8]
         self.user = User.objects.create_user(
             email=f'taskuser_{unique_id}@example.com',
-            username=f'taskuser_{unique_id}',
-            password='TaskPass123!'
+            password='TaskPass123!',
+            first_name='Task',
+            last_name='User'
         )
         
         self.task_data = {
@@ -203,13 +205,11 @@ class TaskModelTests(TestCase):
 
     def test_overdue_task(self):
         """Test identifying overdue tasks."""
-        yesterday = timezone.now().date() - timedelta(days=1)
-        
-        task = Task.objects.create(
+        task = create_task_with_past_due_date(
             user=self.user,
             title='Overdue Task',
-            due_date=yesterday,
-            status='TODO'
+            status='TODO',
+            days_overdue=1
         )
         
         self.assertLess(task.due_date, timezone.now().date())
