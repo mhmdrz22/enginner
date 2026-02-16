@@ -1,70 +1,90 @@
 from rest_framework import serializers
-from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
-from .security import validate_password_strength, check_password_history, save_password_to_history
-from .models import GDPRRequest, LoginAttempt
-import pyotp
-import qrcode
-import io
-import base64
-
-User = get_user_model()
+from django.core.exceptions import ValidationError
+from .models import User
+import re
 
 
 class UserSerializer(serializers.ModelSerializer):
     full_name = serializers.ReadOnlyField()
-    password_expired = serializers.SerializerMethodField()
     
     class Meta:
         model = User
-        fields = [
+        fields = (
             'id', 'email', 'first_name', 'last_name', 'full_name',
-            'email_verified', 'two_factor_enabled', 'date_joined',
-            'password_expired', 'gdpr_consent', 'is_staff'
-        ]
-        read_only_fields = ['id', 'email', 'date_joined', 'email_verified', 'two_factor_enabled']
-    
-    def get_password_expired(self, obj):
-        return obj.is_password_expired()
+            'is_verified', 'two_factor_enabled', 'date_joined',
+            'gdpr_consent', 'gdpr_consent_date'
+        )
+        read_only_fields = ('id', 'email', 'date_joined', 'is_verified')
 
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True)
-    password2 = serializers.CharField(write_only=True, required=True)
+    password_confirm = serializers.CharField(write_only=True, required=True)
     gdpr_consent = serializers.BooleanField(required=True)
     
     class Meta:
         model = User
-        fields = ['email', 'password', 'password2', 'first_name', 'last_name', 'gdpr_consent']
+        fields = ('email', 'password', 'password_confirm', 'first_name', 'last_name', 'gdpr_consent')
+    
+    def validate_password(self, value):
+        """Validate password with policy"""
+        # Minimum length
+        if len(value) < 8:
+            raise serializers.ValidationError('Password must be at least 8 characters long')
+        
+        # Complexity requirements
+        if not re.search(r'[A-Z]', value):
+            raise serializers.ValidationError('Password must contain at least one uppercase letter')
+        
+        if not re.search(r'[a-z]', value):
+            raise serializers.ValidationError('Password must contain at least one lowercase letter')
+        
+        if not re.search(r'[0-9]', value):
+            raise serializers.ValidationError('Password must contain at least one digit')
+        
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', value):
+            raise serializers.ValidationError('Password must contain at least one special character')
+        
+        # Django built-in validation
+        try:
+            validate_password(value)
+        except ValidationError as e:
+            raise serializers.ValidationError(list(e.messages))
+        
+        return value
+    
+    def validate_gdpr_consent(self, value):
+        if not value:
+            raise serializers.ValidationError('You must accept GDPR terms to register')
+        return value
     
     def validate(self, attrs):
-        if attrs['password'] != attrs['password2']:
-            raise serializers.ValidationError({"password": "Passwords don't match."})
-        
-        validate_password_strength(attrs['password'])
-        
-        if not attrs.get('gdpr_consent'):
-            raise serializers.ValidationError({"gdpr_consent": "You must consent to data processing."})
-        
+        if attrs['password'] != attrs['password_confirm']:
+            raise serializers.ValidationError({'password_confirm': 'Passwords do not match'})
         return attrs
     
     def create(self, validated_data):
-        validated_data.pop('password2')
-        user = User.objects.create_user(**validated_data)
-        save_password_to_history(user)
+        validated_data.pop('password_confirm')
+        gdpr_consent = validated_data.pop('gdpr_consent')
         
-        # Generate verification token
-        user.generate_verification_token()
+        user = User.objects.create_user(
+            email=validated_data['email'],
+            password=validated_data['password'],
+            first_name=validated_data.get('first_name', ''),
+            last_name=validated_data.get('last_name', ''),
+        )
+        
+        if gdpr_consent:
+            user.give_gdpr_consent()
         
         return user
 
 
-class EmailVerificationSerializer(serializers.Serializer):
-    token = serializers.CharField(required=True)
-
-
-class ResendVerificationSerializer(serializers.Serializer):
+class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
+    password = serializers.CharField(required=True, write_only=True)
+    totp_code = serializers.CharField(required=False, allow_blank=True)
 
 
 class PasswordResetRequestSerializer(serializers.Serializer):
@@ -72,86 +92,86 @@ class PasswordResetRequestSerializer(serializers.Serializer):
 
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
-    token = serializers.CharField(required=True)
-    password = serializers.CharField(write_only=True, required=True)
-    password2 = serializers.CharField(write_only=True, required=True)
+    new_password = serializers.CharField(write_only=True, required=True)
+    new_password_confirm = serializers.CharField(write_only=True, required=True)
+    
+    def validate_new_password(self, value):
+        # Same validation as RegisterSerializer
+        if len(value) < 8:
+            raise serializers.ValidationError('Password must be at least 8 characters long')
+        
+        if not re.search(r'[A-Z]', value):
+            raise serializers.ValidationError('Password must contain at least one uppercase letter')
+        
+        if not re.search(r'[a-z]', value):
+            raise serializers.ValidationError('Password must contain at least one lowercase letter')
+        
+        if not re.search(r'[0-9]', value):
+            raise serializers.ValidationError('Password must contain at least one digit')
+        
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', value):
+            raise serializers.ValidationError('Password must contain at least one special character')
+        
+        return value
     
     def validate(self, attrs):
-        if attrs['password'] != attrs['password2']:
-            raise serializers.ValidationError({"password": "Passwords don't match."})
-        
-        validate_password_strength(attrs['password'])
-        
+        if attrs['new_password'] != attrs['new_password_confirm']:
+            raise serializers.ValidationError({'new_password_confirm': 'Passwords do not match'})
         return attrs
 
 
-class ChangePasswordSerializer(serializers.Serializer):
-    old_password = serializers.CharField(required=True)
-    new_password = serializers.CharField(required=True)
-    new_password2 = serializers.CharField(required=True)
+class PasswordChangeSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True, write_only=True)
+    new_password = serializers.CharField(required=True, write_only=True)
+    new_password_confirm = serializers.CharField(required=True, write_only=True)
+    
+    def validate_old_password(self, value):
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError('Old password is incorrect')
+        return value
+    
+    def validate_new_password(self, value):
+        # Same validation as RegisterSerializer
+        if len(value) < 8:
+            raise serializers.ValidationError('Password must be at least 8 characters long')
+        
+        if not re.search(r'[A-Z]', value):
+            raise serializers.ValidationError('Password must contain at least one uppercase letter')
+        
+        if not re.search(r'[a-z]', value):
+            raise serializers.ValidationError('Password must contain at least one lowercase letter')
+        
+        if not re.search(r'[0-9]', value):
+            raise serializers.ValidationError('Password must contain at least one digit')
+        
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', value):
+            raise serializers.ValidationError('Password must contain at least one special character')
+        
+        return value
     
     def validate(self, attrs):
-        if attrs['new_password'] != attrs['new_password2']:
-            raise serializers.ValidationError({"new_password": "Passwords don't match."})
+        if attrs['new_password'] != attrs['new_password_confirm']:
+            raise serializers.ValidationError({'new_password_confirm': 'Passwords do not match'})
         
-        user = self.context['request'].user
-        
-        if not user.check_password(attrs['old_password']):
-            raise serializers.ValidationError({"old_password": "Incorrect password."})
-        
-        validate_password_strength(attrs['new_password'], user)
-        check_password_history(user, attrs['new_password'])
+        if attrs['old_password'] == attrs['new_password']:
+            raise serializers.ValidationError({'new_password': 'New password must be different from old password'})
         
         return attrs
 
 
 class TwoFactorEnableSerializer(serializers.Serializer):
-    password = serializers.CharField(required=True, write_only=True)
-
-
-class TwoFactorVerifySerializer(serializers.Serializer):
-    code = serializers.CharField(required=True, max_length=6)
-
-
-class TwoFactorDisableSerializer(serializers.Serializer):
-    password = serializers.CharField(required=True, write_only=True)
-
-
-class TwoFactorQRCodeSerializer(serializers.Serializer):
-    qr_code = serializers.CharField(read_only=True)
-    secret = serializers.CharField(read_only=True)
-    backup_codes = serializers.ListField(child=serializers.CharField(), read_only=True)
-
-
-class GDPRConsentSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ['gdpr_consent', 'data_processing_consent']
-
-
-class GDPRExportRequestSerializer(serializers.Serializer):
     pass
 
 
-class GDPRDeleteRequestSerializer(serializers.Serializer):
-    password = serializers.CharField(required=True, write_only=True)
-    confirmation = serializers.CharField(required=True)
+class TwoFactorVerifySerializer(serializers.Serializer):
+    code = serializers.CharField(required=True, min_length=6, max_length=6)
+
+
+class GDPRConsentSerializer(serializers.Serializer):
+    consent = serializers.BooleanField(required=True)
     
-    def validate_confirmation(self, value):
-        if value != 'DELETE MY ACCOUNT':
-            raise serializers.ValidationError('Please type "DELETE MY ACCOUNT" to confirm.')
+    def validate_consent(self, value):
+        if not value:
+            raise serializers.ValidationError('Consent must be given')
         return value
-
-
-class GDPRRequestSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = GDPRRequest
-        fields = ['id', 'request_type', 'status', 'requested_at', 'completed_at']
-        read_only_fields = ['id', 'status', 'requested_at', 'completed_at']
-
-
-class LoginAttemptSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = LoginAttempt
-        fields = ['email', 'ip_address', 'success', 'timestamp', 'failure_reason']
-        read_only_fields = fields

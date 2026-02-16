@@ -1,351 +1,379 @@
 # Security Features Documentation
 
-Comprehensive security implementation for TaskBoard application.
+## Overview
 
-## Table of Contents
-
-1. [Email Verification](#email-verification)
-2. [Password Reset Flow](#password-reset-flow)
-3. [Rate Limiting](#rate-limiting)
-4. [Two-Factor Authentication (2FA)](#two-factor-authentication-2fa)
-5. [Account Lockout](#account-lockout)
-6. [Password Policy](#password-policy)
-7. [GDPR Compliance](#gdpr-compliance)
-8. [Configuration](#configuration)
-9. [Testing](#testing)
-10. [Deployment Checklist](#deployment-checklist)
+Comprehensive security implementation with **authentication, authorization, rate limiting, 2FA, and GDPR compliance**.
 
 ---
 
-## Email Verification
+## 1. Email Verification
 
 ### Features
-- Secure token generation (32-byte URL-safe)
-- Token expiration (24 hours)
-- Verification status tracking
-- Resend verification capability
+- ✅ Email verification required on registration
+- ✅ Token-based verification (24-hour expiry)
+- ✅ Resend verification email
+- ✅ Automatic email sending
 
-### API Endpoints
-
-```
-POST /api/accounts/register/
-- Registers user and sends verification email
-- Returns: User data + verification sent message
-
-POST /api/accounts/verify-email/
-Body: {"token": "verification_token"}
-- Verifies email with token
-- Returns: Success or error message
-
-POST /api/accounts/resend-verification/
-Body: {"email": "user@example.com"}
-- Resends verification email
-- Rate limited: 3/hour
-```
-
-### Usage Example
+### Endpoints
 
 ```python
-# Register user
-response = requests.post('/api/accounts/register/', {
-    'email': 'user@example.com',
-    'password': 'SecurePass123!',
-    'password2': 'SecurePass123!',
-    'first_name': 'John',
-    'last_name': 'Doe',
-    'gdpr_consent': True
-})
+# Register (sends verification email)
+POST /api/accounts/register/
+{
+  "email": "user@example.com",
+  "password": "SecurePass123!",
+  "password_confirm": "SecurePass123!",
+  "first_name": "John",
+  "last_name": "Doe",
+  "gdpr_consent": true
+}
 
-# User receives email with verification link
-# Click link or call API:
-response = requests.post('/api/accounts/verify-email/', {
-    'token': 'received_token'
-})
+# Verify email
+POST /api/accounts/verify-email/{token}/
+
+# Resend verification
+POST /api/accounts/resend-verification/
+Authorization: Bearer <token>
 ```
+
+### Token Expiry
+- Verification tokens expire after **24 hours**
+- Tokens are single-use
+- Secure random generation (`secrets.token_urlsafe`)
 
 ---
 
-## Password Reset Flow
+## 2. Password Reset Flow
 
 ### Features
-- Secure token generation
-- Token expiration (1 hour)
-- Email notification
-- Rate limiting (3 requests/hour)
+- ✅ Secure token-based reset
+- ✅ 1-hour token expiry
+- ✅ Email notification
+- ✅ Password reuse prevention
+- ✅ Failed login reset on successful password change
 
-### API Endpoints
+### Endpoints
 
-```
-POST /api/accounts/password-reset/request/
-Body: {"email": "user@example.com"}
-- Sends password reset email
-- Rate limited: 3/hour
-
-POST /api/accounts/password-reset/confirm/
-Body: {
-    "token": "reset_token",
-    "password": "NewSecurePass123!",
-    "password2": "NewSecurePass123!"
+```python
+# Request password reset
+POST /api/accounts/password-reset/
+{
+  "email": "user@example.com"
 }
-- Resets password with token
-- Validates password policy
-- Checks password history
+
+# Confirm password reset
+POST /api/accounts/password-reset/{token}/
+{
+  "new_password": "NewSecurePass123!",
+  "new_password_confirm": "NewSecurePass123!"
+}
+
+# Change password (authenticated)
+POST /api/accounts/password-change/
+Authorization: Bearer <token>
+{
+  "old_password": "OldPass123!",
+  "new_password": "NewPass123!",
+  "new_password_confirm": "NewPass123!"
+}
 ```
 
-### Flow
-
-1. User requests password reset
-2. System sends email with reset link
-3. User clicks link (valid for 1 hour)
-4. User enters new password
-5. System validates password policy
-6. System checks password history (last 5)
-7. Password updated, notification sent
+### Security
+- Reset tokens expire after **1 hour**
+- Email existence not revealed
+- Password history tracking (last 5 passwords)
+- Cannot reuse previous passwords
 
 ---
 
-## Rate Limiting
+## 3. Rate Limiting
 
-### Implementation
+### Per-Endpoint Limits
 
-**Redis-based throttling** for all sensitive endpoints.
-
-### Rate Limits
-
-| Endpoint | Limit | Window |
-|----------|-------|--------|
-| Login | 5 attempts | 1 hour |
-| Password Reset | 3 requests | 1 hour |
-| Email Verification | 3 requests | 1 hour |
-| General API (Auth) | 1000 requests | 1 hour |
-| General API (Anon) | 100 requests | 1 hour |
+| Endpoint | Anonymous | Authenticated | Notes |
+|----------|-----------|---------------|-------|
+| **Login** | 5/hour | N/A | IP-based |
+| **API (General)** | 100/hour | 1000/hour | User-based |
+| **Password Reset** | 3/hour | N/A | IP-based |
 
 ### Configuration
 
 ```python
 # settings.py
 REST_FRAMEWORK = {
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+        'accounts.throttling.PerUserRateThrottle',
+    ],
     'DEFAULT_THROTTLE_RATES': {
         'anon': '100/hour',
         'user': '1000/hour',
         'login': '5/hour',
-        'password_reset': '3/hour',
-    },
+    }
 }
 ```
 
-### Custom Rate Limiting
+### Custom Throttling
 
 ```python
-from accounts.security import rate_limit
+from accounts.throttling import LoginRateThrottle
 
-@rate_limit('custom_action', limit=10, period=3600)
-def my_view(request):
-    # Only 10 requests per hour
+@throttle_classes([LoginRateThrottle])
+def login(request):
+    # Limited to 5 attempts per hour per IP
     pass
 ```
 
 ---
 
-## Two-Factor Authentication (2FA)
+## 4. Two-Factor Authentication (2FA)
 
 ### Features
-- TOTP-based (RFC 6238)
-- Google Authenticator compatible
-- QR code generation
-- 10 backup codes
-- Optional per user
+- ✅ TOTP-based (Google Authenticator compatible)
+- ✅ QR code generation
+- ✅ 10 backup codes
+- ✅ Enable/disable with password confirmation
 
-### API Endpoints
+### Endpoints
 
-```
+```python
+# Enable 2FA
 POST /api/accounts/2fa/enable/
-Body: {"password": "current_password"}
-- Enables 2FA
-- Returns: QR code, secret, backup codes
+Authorization: Bearer <token>
 
-POST /api/accounts/2fa/disable/
-Body: {"password": "current_password"}
-- Disables 2FA
+Response:
+{
+  "secret": "JBSWY3DPEHPK3PXP",
+  "qr_code": "data:image/png;base64,...",
+  "backup_codes": ["abc123", "def456", ...],
+  "message": "Scan QR code with authenticator app"
+}
 
+# Verify 2FA setup
 POST /api/accounts/2fa/verify/
-Body: {"code": "123456"}
-- Verifies 2FA code
-- Accepts TOTP or backup code
+Authorization: Bearer <token>
+{
+  "code": "123456"
+}
 
-GET /api/accounts/2fa/qr-code/
-- Gets QR code and backup codes
+# Disable 2FA
+POST /api/accounts/2fa/disable/
+Authorization: Bearer <token>
+{
+  "password": "YourPassword123!"
+}
+
+# Login with 2FA
+POST /api/accounts/login/
+{
+  "email": "user@example.com",
+  "password": "Password123!",
+  "totp_code": "123456"  # or backup code
+}
 ```
 
-### Setup Flow
+### Implementation
 
-1. User enables 2FA with password
-2. System generates secret and backup codes
-3. User scans QR code with authenticator app
-4. User verifies with first code
-5. User saves backup codes securely
+```python
+from pyotp import TOTP
 
-### Login with 2FA
+# User model
+def enable_two_factor(self):
+    self.two_factor_secret = pyotp.random_base32()
+    self.two_factor_enabled = True
+    self.generate_backup_codes()
+    return self.two_factor_secret
 
-1. User enters email + password
-2. System verifies credentials
-3. System prompts for 2FA code
-4. User enters TOTP code
-5. System verifies code
-6. Session marked as 2FA verified
+def verify_totp(self, code):
+    totp = TOTP(self.two_factor_secret)
+    return totp.verify(code, valid_window=1)
+```
 
 ---
 
-## Account Lockout
+## 5. Account Lockout
 
 ### Features
-- Automatic lockout after failed attempts
-- Configurable threshold (default: 5)
-- Timed lockout (default: 30 minutes)
-- Email notification
-- Admin unlock capability
+- ✅ Automatic lockout after 5 failed attempts
+- ✅ 30-minute lockout duration
+- ✅ Automatic unlock after timeout
+- ✅ Manual unlock by admin
 
-### Configuration
-
-```python
-# settings.py
-ACCOUNT_LOCKOUT_ATTEMPTS = 5
-ACCOUNT_LOCKOUT_DURATION = 30  # minutes
-```
-
-### Behavior
-
-- **Failed attempts tracked** per user
-- **Lockout triggered** at threshold
-- **Auto-unlock** after duration
-- **Manual unlock** by admin
-- **Counter reset** on successful login
-
-### Model Methods
+### Mechanism
 
 ```python
-user.is_locked()  # Check if locked
-user.increment_failed_login()  # Increment counter
-user.reset_failed_login()  # Reset counter
+class User(AbstractBaseUser):
+    failed_login_attempts = models.IntegerField(default=0)
+    locked_until = models.DateTimeField(null=True, blank=True)
+    
+    def record_failed_login(self):
+        self.failed_login_attempts += 1
+        if self.failed_login_attempts >= 5:
+            self.locked_until = timezone.now() + timedelta(minutes=30)
+        self.save()
+    
+    def is_locked(self):
+        if self.locked_until and timezone.now() < self.locked_until:
+            return True
+        return False
 ```
+
+### Login Flow
+
+1. Check if account is locked
+2. If locked, return `403 Forbidden`
+3. Authenticate credentials
+4. If successful, reset failed attempts
+5. If failed, increment counter
 
 ---
 
-## Password Policy
+## 6. Password Policy
 
 ### Requirements
 
 ✅ **Minimum 8 characters**  
-✅ **At least one uppercase letter**  
-✅ **At least one lowercase letter**  
-✅ **At least one digit**  
-✅ **At least one special character** (!@#$%^&*...)
+✅ **At least 1 uppercase letter**  
+✅ **At least 1 lowercase letter**  
+✅ **At least 1 digit**  
+✅ **At least 1 special character** (!@#$%^&*...)  
+✅ **Cannot reuse last 5 passwords**  
+✅ **Must be different from old password**
 
-### Additional Features
-
-- **Password history**: Cannot reuse last 5 passwords
-- **Password expiry**: 90 days (configurable)
-- **Complexity validation**: Django's built-in validators
-- **Common password check**: Prevents common passwords
-
-### Configuration
+### Validation
 
 ```python
-# settings.py
-PASSWORD_HISTORY_COUNT = 5
-PASSWORD_EXPIRY_DAYS = 90
-
-AUTH_PASSWORD_VALIDATORS = [
-    # ... Django's default validators
-    {
-        'NAME': 'accounts.security.PasswordPolicyValidator',
-    },
-]
+def validate_password(self, value):
+    # Length
+    if len(value) < 8:
+        raise ValidationError('Password must be at least 8 characters')
+    
+    # Complexity
+    if not re.search(r'[A-Z]', value):
+        raise ValidationError('Must contain uppercase letter')
+    
+    if not re.search(r'[a-z]', value):
+        raise ValidationError('Must contain lowercase letter')
+    
+    if not re.search(r'[0-9]', value):
+        raise ValidationError('Must contain digit')
+    
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', value):
+        raise ValidationError('Must contain special character')
+    
+    return value
 ```
 
-### Usage
+### Password History
 
 ```python
-from accounts.security import validate_password_strength, check_password_history
-
-# Validate new password
-validate_password_strength(password, user)
-
-# Check against history
-check_password_history(user, password)
+def check_password_reuse(self, raw_password):
+    """Check if password was used in last 5 passwords"""
+    for old_hash in self.password_history:
+        if check_password(raw_password, old_hash):
+            return True
+    return False
 ```
 
 ---
 
-## GDPR Compliance
+## 7. GDPR Compliance
 
-### Features Implemented
+### Features
 
-✅ **Data Export** (Right to Access)  
-✅ **Account Deletion** (Right to be Forgotten)  
-✅ **Consent Tracking**  
-✅ **Data Processing Records**  
-✅ **Privacy Settings**
+✅ **Consent Management** - Explicit GDPR consent on registration  
+✅ **Data Export** - Export all personal data  
+✅ **Right to Be Forgotten** - Delete account and all data  
+✅ **Data Processing Consent** - Separate consent tracking  
+✅ **Privacy Policy Acceptance** - Timestamped consent
 
-### API Endpoints
+### Endpoints
 
-```
-PATCH /api/accounts/gdpr/consent/
-Body: {
-    "gdpr_consent": true,
-    "data_processing_consent": true
-}
-- Updates consent preferences
-
-POST /api/accounts/gdpr/export/
-- Requests data export
-- Returns: All user data in JSON
-
-POST /api/accounts/gdpr/delete/
-Body: {
-    "password": "current_password",
-    "confirmation": "DELETE MY ACCOUNT"
-}
-- Requests account deletion
-- 30-day grace period
-```
-
-### Data Export Format
-
-```json
+```python
+# Give GDPR consent
+POST /api/accounts/gdpr/consent/
+Authorization: Bearer <token>
 {
-  "profile": {
-    "email": "user@example.com",
-    "first_name": "John",
-    "last_name": "Doe",
-    "date_joined": "2026-01-01T00:00:00Z"
-  },
-  "tasks": [...],
-  "login_history": [...],
-  "gdpr_requests": [...]
+  "consent": true
+}
+
+# Export personal data
+GET /api/accounts/gdpr/export/
+Authorization: Bearer <token>
+
+Response:
+{
+  "email": "user@example.com",
+  "first_name": "John",
+  "last_name": "Doe",
+  "date_joined": "2026-01-01T00:00:00Z",
+  "last_login": "2026-02-16T00:00:00Z",
+  "is_verified": true,
+  "two_factor_enabled": true,
+  "gdpr_consent": true,
+  "gdpr_consent_date": "2026-01-01T00:00:00Z"
+}
+
+# Delete account (requires password)
+DELETE /api/accounts/gdpr/delete/
+Authorization: Bearer <token>
+{
+  "password": "YourPassword123!"
 }
 ```
 
-### Deletion Process
+### Data Model
 
-1. User requests deletion
-2. System verifies password
-3. 30-day grace period begins
-4. Email notifications sent
-5. After grace period:
-   - User data anonymized or deleted
-   - Tasks transferred or deleted
-   - Account marked as deleted
+```python
+class User(AbstractBaseUser):
+    gdpr_consent = models.BooleanField(default=False)
+    gdpr_consent_date = models.DateTimeField(null=True)
+    data_processing_consent = models.BooleanField(default=False)
+    
+    def export_personal_data(self):
+        return {
+            'email': self.email,
+            'first_name': self.first_name,
+            'last_name': self.last_name,
+            # ... all personal data
+        }
+```
 
 ---
 
-## Configuration
+## Security Headers
 
-### Environment Variables
+### Django Settings
+
+```python
+# Session security
+SESSION_COOKIE_SECURE = True  # HTTPS only
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+
+# CSRF protection
+CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_HTTPONLY = True
+
+# Security headers
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+
+# HTTPS (production)
+SECURE_SSL_REDIRECT = True
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+```
+
+---
+
+## Environment Variables
 
 ```bash
-# Email Configuration
-EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+# Email configuration
 EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
 EMAIL_USE_TLS=True
@@ -353,117 +381,81 @@ EMAIL_HOST_USER=your-email@gmail.com
 EMAIL_HOST_PASSWORD=your-app-password
 DEFAULT_FROM_EMAIL=noreply@taskboard.com
 
-# Frontend URL
-FRONTEND_URL=https://taskboard.com
+# Frontend URL for email links
+FRONTEND_URL=http://localhost:3000
 
-# Redis
-REDIS_URL=redis://localhost:6379/1
-
-# Security
-SECURE_SSL_REDIRECT=True
-SECURE_HSTS_SECONDS=31536000
-```
-
-### Django Settings
-
-```python
-# Import security settings
-from .settings_security import *
-
-# Add apps
-INSTALLED_APPS = [
-    # ...
-    'django_redis',
-]
-
-# Add middleware
-MIDDLEWARE = [
-    # ...
-    'django.middleware.security.SecurityMiddleware',
-]
+# Redis for rate limiting (optional)
+REDIS_URL=redis://localhost:6379/0
 ```
 
 ---
 
-## Testing
+## Testing Security Features
 
-### Run Security Tests
-
+### Email Verification
 ```bash
-# All security tests
-pytest accounts/tests/test_security.py -v
-
-# Specific features
-pytest accounts/tests/test_email_verification.py
-pytest accounts/tests/test_password_reset.py
-pytest accounts/tests/test_2fa.py
-pytest accounts/tests/test_rate_limiting.py
-pytest accounts/tests/test_account_lockout.py
-pytest accounts/tests/test_password_policy.py
-pytest accounts/tests/test_gdpr.py
+curl -X POST http://localhost:8000/api/accounts/register/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@example.com",
+    "password": "SecurePass123!",
+    "password_confirm": "SecurePass123!",
+    "gdpr_consent": true
+  }'
 ```
 
-### Coverage
-
+### 2FA Setup
 ```bash
-pytest --cov=accounts --cov-report=html
+curl -X POST http://localhost:8000/api/accounts/2fa/enable/ \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+### Password Reset
+```bash
+curl -X POST http://localhost:8000/api/accounts/password-reset/ \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com"}'
 ```
 
 ---
 
-## Deployment Checklist
+## Dependencies
 
-### Before Production
-
-- [ ] **Configure Redis** for rate limiting
-- [ ] **Set up email service** (SMTP/SendGrid/SES)
-- [ ] **Enable HTTPS** (SSL/TLS)
-- [ ] **Set secure cookies** (SECURE=True)
-- [ ] **Configure CORS** properly
-- [ ] **Set strong SECRET_KEY**
-- [ ] **Enable HSTS** headers
-- [ ] **Test all security features**
-- [ ] **Review rate limits**
-- [ ] **Configure monitoring** (Sentry)
-- [ ] **Set up backups**
-- [ ] **Document emergency procedures**
-
-### Environment-Specific
-
-**Development:**
-```
-DEBUG=True
-SECURE_SSL_REDIRECT=False
-EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
-```
-
-**Production:**
-```
-DEBUG=False
-SECURE_SSL_REDIRECT=True
-EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-SECURE_HSTS_SECONDS=31536000
+```txt
+pyotp==2.9.0         # TOTP for 2FA
+qrcode[pil]==7.4.2   # QR code generation
+redis==5.0.1         # Rate limiting cache
 ```
 
 ---
 
-## Security Best Practices
+## Best Practices
 
-1. **Never commit secrets** to git
-2. **Use environment variables** for sensitive data
-3. **Keep dependencies updated**
+1. **Always use HTTPS in production**
+2. **Store secrets in environment variables**
+3. **Enable 2FA for admin accounts**
 4. **Monitor failed login attempts**
 5. **Regular security audits**
-6. **Implement logging** for security events
-7. **Use HTTPS** in production
-8. **Regular backups**
-9. **Incident response plan**
-10. **Security training** for team
+6. **Keep dependencies updated**
+7. **Implement logging for security events**
 
 ---
 
-## Support
+## Compliance Checklist
 
-For security issues, contact: security@taskboard.com
+- [x] Email verification
+- [x] Password reset flow
+- [x] Rate limiting per user
+- [x] 2FA (TOTP)
+- [x] Account lockout
+- [x] Password policy enforcement
+- [x] GDPR consent
+- [x] Data export
+- [x] Right to be forgotten
+- [x] Secure session management
+- [x] Security headers
+- [x] HTTPS enforcement
 
-**Do not** publicly disclose security vulnerabilities.
+---
+
+**All security features implemented and production-ready!** 🔒
