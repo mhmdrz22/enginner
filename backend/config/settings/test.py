@@ -4,6 +4,8 @@ Optimized for testing with PostgreSQL.
 Use: DJANGO_SETTINGS_MODULE=config.settings.test
 """
 import os
+import dj_database_url
+import urllib.parse
 from .base import *
 
 # Debug ON for testing (avoid static file issues)
@@ -24,19 +26,14 @@ CORS_ALLOW_CREDENTIALS = True
 
 # Database - Use PostgreSQL (same as production)
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('POSTGRES_DB', 'test_taskboard'),
-        'USER': os.environ.get('POSTGRES_USER', 'postgres'),
-        'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'postgres'),
-        'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
-        'PORT': os.environ.get('POSTGRES_PORT', '5432'),
-        'ATOMIC_REQUESTS': True,
-        'CONN_MAX_AGE': 0,  # Close connections after each request in tests
-        'TEST': {
-            'NAME': 'test_taskboard_test',
-        },
-    }
+    'default': dj_database_url.config(
+        default=f"postgres://{urllib.parse.quote_plus(os.environ.get('POSTGRES_USER', 'postgres'))}:{urllib.parse.quote_plus(os.environ.get('POSTGRES_PASSWORD', 'postgres'))}@{os.environ.get('POSTGRES_HOST', 'localhost')}:{os.environ.get('POSTGRES_PORT', '5432')}/{os.environ.get('POSTGRES_DB', 'test_taskboard')}",
+        conn_max_age=0,
+    )
+}
+DATABASES['default']['ATOMIC_REQUESTS'] = True
+DATABASES['default']['TEST'] = {
+    'NAME': 'test_taskboard_test',
 }
 
 # Cache - Use local memory cache for tests (no Redis needed)
