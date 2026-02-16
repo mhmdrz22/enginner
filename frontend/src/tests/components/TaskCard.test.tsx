@@ -60,14 +60,10 @@ describe('TaskCard Component', () => {
 
     render(<TaskCard task={mockTask} onDelete={onDelete} />, { wrapper });
 
-    // Find the menu button by aria-haspopup attribute (it has no text/label)
+    // Find the menu button by aria-label
     const menuButton = screen.getByRole('button', { 
-      hidden: false,
-      name: '' // Empty name because button has no aria-label
+      name: /task options menu/i
     });
-    
-    // Make button visible first (it has opacity-0 group-hover:opacity-100)
-    await user.hover(screen.getByText('Test Task'));
     await user.click(menuButton);
 
     // Wait for menu to open and find delete option
