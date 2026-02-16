@@ -17,6 +17,7 @@ const Dashboard = lazy(() => import('@/pages/Dashboard'));
 const TasksPage = lazy(() => import('@/pages/TasksPage'));
 const TaskDetailPage = lazy(() => import('@/pages/TaskDetailPage'));
 const ProfilePage = lazy(() => import('@/pages/ProfilePage'));
+const AdminDashboard = lazy(() => import('@/pages/AdminDashboard'));
 
 // Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -117,6 +118,7 @@ function App() {
               <Route path="tasks" element={<TasksPage />} />
               <Route path="tasks/:id" element={<TaskDetailPage />} />
               <Route path="profile" element={<ProfilePage />} />
+              <Route path="admin" element={<AdminDashboard />} />
             </Route>
 
             {/* 404 */}
