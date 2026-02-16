@@ -1,1 +1,1 @@
-"""Tests package for accounts app."""
+# Accounts app tests
