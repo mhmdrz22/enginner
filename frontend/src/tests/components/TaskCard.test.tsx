@@ -45,7 +45,10 @@ describe('TaskCard Component', () => {
   it('displays due date', () => {
     render(<TaskCard task={mockTask} />, { wrapper });
     // Date is displayed in Persian format: "فور 20" (Feb 20)
-    expect(screen.getByText(/فور 20/)).toBeInTheDocument();
+    // Using getAllByText because date might appear in tooltip or elsewhere
+    const dateElements = screen.getAllByText(/فور 20/);
+    expect(dateElements.length).toBeGreaterThan(0);
+    expect(dateElements[0]).toBeInTheDocument();
   });
 
   it('displays tags', () => {

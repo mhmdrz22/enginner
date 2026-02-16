@@ -5,6 +5,7 @@ import uuid
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.db.utils import IntegrityError
 from datetime import timedelta
 from tasks.models import Task
 from .helpers import create_task_with_past_due_date
@@ -170,14 +171,13 @@ class TaskModelTests(TestCase):
             Task.objects.get(id=task_id)
 
     def test_task_without_user(self):
-        """Test creating task without user (allowed)."""
-        task = Task.objects.create(
-            title='No User Task',
-            user=None
-        )
-        
-        self.assertIsNone(task.user)
-        self.assertEqual(task.title, 'No User Task')
+        """Test creating task without user raises IntegrityError."""
+        with self.assertRaises(IntegrityError):
+            Task.objects.create(
+                title='No User Task',
+                status='TODO',
+                priority='MEDIUM'
+            )
 
     def test_multiple_tasks_per_user(self):
         """Test user can have multiple tasks."""

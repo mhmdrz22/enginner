@@ -71,11 +71,7 @@ jobs:
         DJANGO_SETTINGS_MODULE: config.settings.test
         SECRET_KEY: test-secret-key-for-ci-do-not-use-in-production
         DEBUG: False
-        POSTGRES_DB: test_taskboard
-        POSTGRES_USER: postgres
-        POSTGRES_PASSWORD: postgres
-        POSTGRES_HOST: localhost
-        POSTGRES_PORT: 5432
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_taskboard
       run: |
         # Run tests with coverage and force database creation
         pytest --cov=. --cov-report=xml --cov-report=term-missing --cov-report=html --create-db -n auto --maxfail=5
