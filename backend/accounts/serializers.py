@@ -1,87 +1,123 @@
-from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
+from .validators import PasswordPolicyValidator, calculate_password_strength
 
 User = get_user_model()
 
 
-class UserSerializer(serializers.ModelSerializer):
-    """Serializer for User model (without username)."""
-    
-    full_name = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = User
-        fields = (
-            'id', 'email', 'first_name', 'last_name', 'full_name',
-            'is_active', 'is_staff', 'is_superuser', 'is_verified',
-            'created_date', 'last_login_date'
-        )
-        read_only_fields = (
-            'id', 'is_active', 'is_staff', 'is_superuser',
-            'created_date', 'last_login_date'
-        )
-    
-    def get_full_name(self, obj):
-        """Return full name of the user."""
-        return obj.get_full_name()
-
-
 class RegisterSerializer(serializers.ModelSerializer):
-    """Serializer for user registration (email-based, no username)."""
     password = serializers.CharField(
         write_only=True,
-        min_length=8,
-        style={'input_type': 'password'}
+        validators=[PasswordPolicyValidator()]
     )
-    password2 = serializers.CharField(
-        write_only=True,
-        min_length=8,
-        label='Confirm Password',
-        style={'input_type': 'password'}
-    )
-
+    password_confirm = serializers.CharField(write_only=True)
+    privacy_policy_accepted = serializers.BooleanField(required=True)
+    
     class Meta:
         model = User
-        fields = (
-            'id', 'email', 'first_name', 'last_name',
-            'password', 'password2'
-        )
-        read_only_fields = ('id',)
-
-    def validate_email(self, value):
-        """Check that email is unique."""
-        if User.objects.filter(email__iexact=value).exists():
+        fields = [
+            'email', 'password', 'password_confirm', 'first_name', 'last_name',
+            'privacy_policy_accepted', 'data_processing_consent', 'marketing_consent'
+        ]
+    
+    def validate(self, attrs):
+        if attrs['password'] != attrs.pop('password_confirm'):
+            raise serializers.ValidationError({"password": "Passwords don't match."})
+        
+        if not attrs.get('privacy_policy_accepted'):
             raise serializers.ValidationError(
-                'A user with that email already exists.'
+                {"privacy_policy_accepted": "You must accept the privacy policy."}
             )
-        return value.lower()
-
-    def validate(self, data):
-        """Check that passwords match."""
-        if data.get('password') != data.get('password2'):
-            raise serializers.ValidationError(
-                {'password': 'Passwords do not match.'}
-            )
-        return data
-
+        
+        return attrs
+    
     def create(self, validated_data):
-        """Create a new user with encrypted password."""
-        validated_data.pop('password2')
-        password = validated_data.pop('password')
-        user = User.objects.create_user(password=password, **validated_data)
+        from django.utils import timezone
+        validated_data['privacy_policy_accepted_at'] = timezone.now()
+        user = User.objects.create_user(**validated_data)
         return user
 
 
-class UserUpdateSerializer(serializers.ModelSerializer):
-    """Serializer for updating user profile."""
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    token = serializers.CharField()
+    password = serializers.CharField(
+        write_only=True,
+        validators=[PasswordPolicyValidator()]
+    )
+    password_confirm = serializers.CharField(write_only=True)
     
-    class Meta:
-        model = User
-        fields = ('first_name', 'last_name')
+    def validate(self, attrs):
+        if attrs['password'] != attrs['password_confirm']:
+            raise serializers.ValidationError({"password": "Passwords don't match."})
+        return attrs
+
+
+class EmailVerificationSerializer(serializers.Serializer):
+    token = serializers.CharField()
+
+
+class TwoFactorSetupSerializer(serializers.Serializer):
+    pass
+
+
+class TwoFactorVerifySerializer(serializers.Serializer):
+    token = serializers.CharField(max_length=6, min_length=6)
+
+
+class TwoFactorDisableSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True)
+
+
+class GDPRDataExportSerializer(serializers.Serializer):
+    pass
+
+
+class GDPRDataDeletionSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True)
+    confirm = serializers.BooleanField()
     
-    def update(self, instance, validated_data):
-        """Update user profile fields."""
-        instance.first_name = validated_data.get('first_name', instance.first_name)
-        instance.last_name = validated_data.get('last_name', instance.last_name)
-        instance.save()
-        return instance
+    def validate_confirm(self, value):
+        if not value:
+            raise serializers.ValidationError(
+                "You must confirm account deletion."
+            )
+        return value
+
+
+class PasswordStrengthSerializer(serializers.Serializer):
+    password = serializers.CharField()
+    
+    def validate(self, attrs):
+        password = attrs['password']
+        strength = calculate_password_strength(password)
+        
+        return {
+            'strength': strength,
+            'level': self._get_strength_level(strength),
+            'feedback': self._get_feedback(strength)
+        }
+    
+    def _get_strength_level(self, strength):
+        if strength < 30:
+            return 'weak'
+        elif strength < 60:
+            return 'medium'
+        elif strength < 80:
+            return 'strong'
+        else:
+            return 'very_strong'
+    
+    def _get_feedback(self, strength):
+        if strength < 30:
+            return 'Your password is weak. Consider adding more characters and variety.'
+        elif strength < 60:
+            return 'Your password is acceptable but could be stronger.'
+        elif strength < 80:
+            return 'Your password is strong!'
+        else:
+            return 'Excellent! Your password is very strong.'
