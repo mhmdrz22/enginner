@@ -1,6 +1,6 @@
 """Test settings for CI/CD and pytest.
 
-Optimized for fast test execution.
+Optimized for testing with PostgreSQL.
 Use: DJANGO_SETTINGS_MODULE=config.settings.test
 """
 import os
@@ -22,31 +22,22 @@ ALLOWED_HOSTS = ['*', 'testserver', 'localhost', '127.0.0.1']
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
-# Database - Use in-memory SQLite for much faster tests
-# Override with PostgreSQL if POSTGRES_DB is set (for integration tests)
-if os.environ.get('USE_POSTGRES_FOR_TESTS') == 'true':
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.environ.get('POSTGRES_DB', 'test_taskboard'),
-            'USER': os.environ.get('POSTGRES_USER', 'postgres'),
-            'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'postgres'),
-            'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
-            'PORT': os.environ.get('POSTGRES_PORT', '5432'),
-            'TEST': {
-                'NAME': 'test_taskboard_test',
-            },
-        }
+# Database - Use PostgreSQL (same as production)
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('POSTGRES_DB', 'test_taskboard'),
+        'USER': os.environ.get('POSTGRES_USER', 'postgres'),
+        'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'postgres'),
+        'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
+        'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+        'ATOMIC_REQUESTS': True,
+        'CONN_MAX_AGE': 0,  # Close connections after each request in tests
+        'TEST': {
+            'NAME': 'test_taskboard_test',
+        },
     }
-else:
-    # Default to SQLite in-memory for speed
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': ':memory:',
-            'ATOMIC_REQUESTS': True,
-        }
-    }
+}
 
 # Cache - Use local memory cache for tests
 CACHES = {
