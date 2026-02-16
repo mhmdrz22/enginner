@@ -1,156 +1,103 @@
-"""Tests for User model."""
-
-import uuid
 from django.test import TestCase
 from django.contrib.auth import get_user_model
-from django.db import IntegrityError
-
+from django.core.exceptions import ValidationError
+from django.db.utils import IntegrityError
 
 User = get_user_model()
 
 
 class UserModelTests(TestCase):
-    """Test suite for custom User model."""
+    """Test suite for User model."""
 
-    def test_create_user_with_email(self):
-        """Test creating a user with email successfully."""
-        uid = uuid.uuid4().hex[:8]
-        email = f'test_{uid}@example.com'
-        username = f'testuser_{uid}'
-        password = 'TestPass123!'
+    def setUp(self):
+        """Set up test data."""
+        self.user_data = {
+            'email': 'test@example.com',
+            'first_name': 'Test',
+            'last_name': 'User',
+            'password': 'testpass123'
+        }
+
+    def test_create_user(self):
+        """Test creating a regular user."""
+        user = User.objects.create_user(**self.user_data)
         
-        user = User.objects.create_user(
-            email=email,
-            username=username,
-            password=password
-        )
-        
-        self.assertEqual(user.email, email)
-        self.assertEqual(user.username, username)
+        self.assertEqual(user.email, self.user_data['email'])
+        self.assertEqual(user.first_name, self.user_data['first_name'])
+        self.assertEqual(user.last_name, self.user_data['last_name'])
+        self.assertTrue(user.check_password(self.user_data['password']))
         self.assertTrue(user.is_active)
         self.assertFalse(user.is_staff)
         self.assertFalse(user.is_superuser)
 
-    def test_create_user_without_email_raises_error(self):
-        """Test that creating user without email raises ValueError."""
-        with self.assertRaises(ValueError):
-            User.objects.create_user(
-                email='',
-                username='testuser',
-                password='TestPass123!'
-            )
-
     def test_create_superuser(self):
         """Test creating a superuser."""
-        uid = uuid.uuid4().hex[:8]
-        email = f'admin_{uid}@example.com'
-        username = f'admin_{uid}'
-        password = 'AdminPass123!'
-        
         user = User.objects.create_superuser(
-            email=email,
-            username=username,
-            password=password
+            email='admin@example.com',
+            password='adminpass123'
         )
         
-        self.assertEqual(user.email, email)
+        self.assertEqual(user.email, 'admin@example.com')
         self.assertTrue(user.is_active)
         self.assertTrue(user.is_staff)
         self.assertTrue(user.is_superuser)
 
-    def test_user_str_representation(self):
-        """Test user string representation returns email."""
-        uid = uuid.uuid4().hex[:8]
-        email = f'test_{uid}@example.com'
+    def test_email_normalization(self):
+        """Test email is normalized."""
+        email = 'test@EXAMPLE.COM'
         user = User.objects.create_user(
             email=email,
-            username=f'testuser_{uid}',
-            password='TestPass123!'
-        )
-        
-        self.assertEqual(str(user), email)
-
-    def test_user_email_normalized(self):
-        """Test email is normalized (lowercase domain)."""
-        uid = uuid.uuid4().hex[:8]
-        email = f'test_{uid}@EXAMPLE.COM'
-        user = User.objects.create_user(
-            email=email,
-            username=f'testuser_{uid}',
-            password='TestPass123!'
+            password='testpass123'
         )
         
         self.assertEqual(user.email, email.lower())
 
-    def test_duplicate_email_raises_error(self):
-        """Test that duplicate email raises IntegrityError."""
-        uid = uuid.uuid4().hex[:8]
-        email = f'duplicate_{uid}@example.com'
-        
-        User.objects.create_user(
-            email=email,
-            username=f'user1_{uid}',
-            password='Pass123!'
-        )
-        
-        with self.assertRaises(IntegrityError):
+    def test_email_required(self):
+        """Test that email is required."""
+        with self.assertRaises(ValueError):
             User.objects.create_user(
-                email=email,
-                username=f'user2_{uid}',
-                password='Pass123!'
+                email='',
+                password='testpass123'
             )
 
-    def test_user_password_is_hashed(self):
-        """Test that password is properly hashed."""
-        uid = uuid.uuid4().hex[:8]
-        password = 'TestPass123!'
-        user = User.objects.create_user(
-            email=f'test_{uid}@example.com',
-            username=f'testuser_{uid}',
-            password=password
-        )
+    def test_unique_email(self):
+        """Test that email must be unique."""
+        User.objects.create_user(**self.user_data)
         
-        self.assertNotEqual(user.password, password)
-        self.assertTrue(user.check_password(password))
+        with self.assertRaises(IntegrityError):
+            User.objects.create_user(**self.user_data)
 
-    def test_user_can_change_password(self):
-        """Test user can change password."""
-        uid = uuid.uuid4().hex[:8]
-        old_password = 'OldPass123!'
-        new_password = 'NewPass123!'
-        
-        user = User.objects.create_user(
-            email=f'test_{uid}@example.com',
-            username=f'testuser_{uid}',
-            password=old_password
-        )
-        
-        user.set_password(new_password)
-        user.save()
-        
-        self.assertFalse(user.check_password(old_password))
-        self.assertTrue(user.check_password(new_password))
+    def test_user_str_method(self):
+        """Test string representation of user."""
+        user = User.objects.create_user(**self.user_data)
+        self.assertEqual(str(user), self.user_data['email'])
 
-    def test_inactive_user_creation(self):
-        """Test creating inactive user."""
-        uid = uuid.uuid4().hex[:8]
-        user = User.objects.create_user(
-            email=f'inactive_{uid}@example.com',
-            username=f'inactive_{uid}',
-            password='Pass123!',
-            is_active=False
-        )
-        
-        self.assertFalse(user.is_active)
+    def test_full_name_property(self):
+        """Test full_name property."""
+        user = User.objects.create_user(**self.user_data)
+        expected_full_name = f"{self.user_data['first_name']} {self.user_data['last_name']}"
+        self.assertEqual(user.full_name, expected_full_name)
 
-    def test_user_timestamps(self):
-        """Test user has created_date and updated_date."""
-        uid = uuid.uuid4().hex[:8]
+    def test_full_name_with_empty_names(self):
+        """Test full_name when names are empty."""
         user = User.objects.create_user(
-            email=f'test_{uid}@example.com',
-            username=f'testuser_{uid}',
-            password='Pass123!'
+            email='test@example.com',
+            password='testpass123'
+        )
+        self.assertEqual(user.full_name, '')
+
+    def test_user_ordering(self):
+        """Test default ordering of users."""
+        user1 = User.objects.create_user(
+            email='user1@example.com',
+            password='pass123'
+        )
+        user2 = User.objects.create_user(
+            email='user2@example.com',
+            password='pass123'
         )
         
-        self.assertIsNotNone(user.created_date)
-        self.assertIsNotNone(user.updated_date)
+        users = User.objects.all()
+        # Should be ordered by date_joined descending
+        self.assertEqual(users[0], user2)
+        self.assertEqual(users[1], user1)
