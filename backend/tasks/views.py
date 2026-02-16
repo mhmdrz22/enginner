@@ -14,7 +14,6 @@ class TaskViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'priority']
     search_fields = ['title', 'description', 'tags']
-    # Corrected field name: created_date -> created_at
     ordering_fields = ['due_date', 'priority', 'created_at']
     ordering = ['-created_at']
 
@@ -32,7 +31,14 @@ class TaskViewSet(viewsets.ModelViewSet):
         self._clear_user_cache()
 
     def perform_update(self, serializer):
-        serializer.save()
+        instance = serializer.instance
+        new_status = serializer.validated_data.get('status', instance.status)
+
+        if new_status == 'DONE' and instance.status != 'DONE':
+            serializer.save(completed_at=timezone.now())
+        else:
+            serializer.save()
+
         self._clear_user_cache()
 
     def perform_destroy(self, instance):
@@ -40,7 +46,6 @@ class TaskViewSet(viewsets.ModelViewSet):
         self._clear_user_cache()
 
     def _clear_user_cache(self):
-        # Safe cache clearing for both production (Redis) and tests (LocMem)
         if hasattr(cache, 'delete_pattern'):
             cache.delete_pattern(f'tasks_list_{self.request.user.id}_*')
         else:
@@ -68,9 +73,8 @@ class TaskViewSet(viewsets.ModelViewSet):
         serializer = TaskHistorySerializer(history, many=True)
         return Response(serializer.data)
 
-    # Added statistics action which is called in tests
-    @action(detail=False, methods=['get'], url_path='statistics', url_name='task-statistics')
-    def task_statistics(self, request):
+    @action(detail=False, methods=['get'], url_path='statistics')
+    def statistics(self, request):
         total = self.get_queryset().count()
         completed = self.get_queryset().filter(status='DONE').count()
         return Response({

@@ -6,7 +6,6 @@ def create_task_with_past_due_date(user, title, days_overdue=1, **kwargs):
     """Helper to create a task with a due_date in the past."""
     
     due_date = kwargs.get('due_date') or (timezone.now() - timedelta(days=days_overdue))
-    # Corrected field name: created_date -> created_at
     created_at = due_date - timedelta(days=1)
 
     task_kwargs = {k: v for k, v in kwargs.items() if k != 'due_date' and k != 'created_at'}

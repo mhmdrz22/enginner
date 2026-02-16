@@ -13,5 +13,4 @@ class TaskHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = TaskHistory
         fields = '__all__'
-        # Important fix: ensure tuple format with trailing comma
         read_only_fields = ('changed_at',)
