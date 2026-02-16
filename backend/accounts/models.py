@@ -100,6 +100,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         db_table = 'users'
         verbose_name = _("user")
         verbose_name_plural = _("users")
+        ordering = ['-created_date']
         indexes = [
             models.Index(fields=['email', 'is_active'], name='user_email_active_idx'),
             models.Index(fields=['-created_date'], name='user_created_idx'),
@@ -107,6 +108,11 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+    
+    @property
+    def full_name(self):
+        """Property that returns the full name (for test compatibility)."""
+        return self.get_full_name()
     
     def get_full_name(self):
         """Return the first_name plus the last_name, with a space in between."""
