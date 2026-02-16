@@ -1,119 +1,95 @@
-import { useState } from 'react'
-import { Calendar, MoreVertical, Trash2, Edit } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { formatDate } from '@/lib/utils'
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { formatDate } from '@/lib/utils'
-import { useTasks } from '@/hooks/use-tasks'
-import { EditTaskDialog } from './edit-task-dialog'
+import { Clock, Edit, Trash2 } from 'lucide-react'
 import type { Task } from '@/types'
 
 interface TaskCardProps {
   task: Task
+  onEdit?: (task: Task) => void
+  onDelete?: (id: number) => void
 }
 
-export function TaskCard({ task }: TaskCardProps) {
-  const { deleteTask, isDeleting } = useTasks()
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [showEditDialog, setShowEditDialog] = useState(false)
+const priorityColors = {
+  LOW: 'secondary',
+  MEDIUM: 'warning',
+  HIGH: 'destructive',
+} as const
 
-  const priorityColors = {
-    HIGH: 'destructive',
-    MEDIUM: 'warning',
-    LOW: 'secondary',
-  } as const
+const statusColors = {
+  TODO: 'outline',
+  DOING: 'info',
+  DONE: 'success',
+} as const
 
-  const handleDelete = () => {
-    deleteTask(task.id)
-    setShowDeleteDialog(false)
-  }
-
+export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
   return (
-    <>
-      <Card className="cursor-pointer hover:shadow-md transition-shadow">
-        <CardHeader className="pb-3">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <CardTitle className="text-base line-clamp-2">{task.title}</CardTitle>
-              {task.due_date && (
-                <CardDescription className="flex items-center gap-1 mt-2">
-                  <Calendar className="h-3 w-3" />
-                  {formatDate(task.due_date)}
-                </CardDescription>
-              )}
-            </div>
-            <div className="flex gap-1">
+    <Card className="hover:shadow-md transition-shadow">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="font-semibold text-lg line-clamp-2">{task.title}</h3>
+          <div className="flex gap-1">
+            {onEdit && (
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
-                onClick={() => setShowEditDialog(true)}
+                onClick={() => onEdit(task)}
               >
                 <Edit className="h-4 w-4" />
               </Button>
+            )}
+            {onDelete && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
-                onClick={() => setShowDeleteDialog(true)}
+                className="h-8 w-8 text-destructive"
+                onClick={() => onDelete(task.id)}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
-            </div>
+            )}
           </div>
-        </CardHeader>
-        {task.description && (
-          <CardContent className="pt-0">
-            <p className="text-sm text-muted-foreground line-clamp-3">
-              {task.description}
-            </p>
-            <div className="mt-3">
-              <Badge variant={priorityColors[task.priority]}>
-                {task.priority}
-              </Badge>
+        </div>
+        <div className="flex gap-2 mt-2">
+          <Badge variant={statusColors[task.status]}>
+            {task.status}
+          </Badge>
+          <Badge variant={priorityColors[task.priority]}>
+            {task.priority}
+          </Badge>
+        </div>
+      </CardHeader>
+      {task.description && (
+        <CardContent className="pb-3">
+          <p className="text-sm text-muted-foreground line-clamp-3">
+            {task.description}
+          </p>
+        </CardContent>
+      )}
+      <CardFooter className="pt-0">
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          {task.due_date && (
+            <div className="flex items-center gap-1">
+              <Clock className="h-4 w-4" />
+              <span>{formatDate(task.due_date)}</span>
             </div>
-          </CardContent>
-        )}
-      </Card>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Task</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this task? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={isDeleting}
-            >
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Dialog */}
-      <EditTaskDialog
-        task={task}
-        open={showEditDialog}
-        onOpenChange={setShowEditDialog}
-      />
-    </>
+          )}
+          {task.tags && (
+            <div className="flex gap-1 flex-wrap">
+              {task.tags.split(',').filter(Boolean).map((tag) => (
+                <span
+                  key={tag}
+                  className="px-2 py-0.5 text-xs bg-secondary rounded"
+                >
+                  {tag.trim()}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </CardFooter>
+    </Card>
   )
 }
