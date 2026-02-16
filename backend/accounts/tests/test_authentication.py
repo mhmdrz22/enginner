@@ -24,10 +24,11 @@ class AuthenticationTests(TestCase):
 
     def test_register_user(self):
         """Test user registration."""
-        url = reverse('register')
+        url = reverse('accounts:register')
         data = {
             'email': 'newuser@example.com',
             'password': 'newpass123',
+            'password2': 'newpass123',
             'first_name': 'New',
             'last_name': 'User'
         }
@@ -42,10 +43,11 @@ class AuthenticationTests(TestCase):
 
     def test_register_duplicate_email(self):
         """Test registering with existing email fails."""
-        url = reverse('register')
+        url = reverse('accounts:register')
         data = {
             'email': self.user_data['email'],  # Duplicate
             'password': 'newpass123',
+            'password2': 'newpass123',
             'first_name': 'Another',
             'last_name': 'User'
         }
@@ -56,7 +58,7 @@ class AuthenticationTests(TestCase):
 
     def test_login_user(self):
         """Test user login returns JWT tokens."""
-        url = reverse('login')
+        url = reverse('accounts:login')
         data = {
             'email': self.user_data['email'],
             'password': self.user_data['password']
@@ -71,7 +73,7 @@ class AuthenticationTests(TestCase):
 
     def test_login_invalid_credentials(self):
         """Test login with invalid credentials fails."""
-        url = reverse('login')
+        url = reverse('accounts:login')
         data = {
             'email': self.user_data['email'],
             'password': 'wrongpassword'
@@ -84,7 +86,7 @@ class AuthenticationTests(TestCase):
     def test_get_profile_authenticated(self):
         """Test getting profile with authentication."""
         self.client.force_authenticate(user=self.user)
-        url = reverse('profile')
+        url = reverse('accounts:profile')
         
         response = self.client.get(url)
         
@@ -93,7 +95,7 @@ class AuthenticationTests(TestCase):
 
     def test_get_profile_unauthenticated(self):
         """Test getting profile without authentication fails."""
-        url = reverse('profile')
+        url = reverse('accounts:profile')
         
         response = self.client.get(url)
         
@@ -102,7 +104,7 @@ class AuthenticationTests(TestCase):
     def test_update_profile(self):
         """Test updating user profile."""
         self.client.force_authenticate(user=self.user)
-        url = reverse('profile')
+        url = reverse('accounts:profile')
         data = {
             'first_name': 'Updated',
             'last_name': 'Name'
@@ -118,7 +120,7 @@ class AuthenticationTests(TestCase):
     def test_logout(self):
         """Test logout endpoint."""
         self.client.force_authenticate(user=self.user)
-        url = reverse('logout')
+        url = reverse('accounts:logout')
         
         refresh = RefreshToken.for_user(self.user)
         data = {'refresh': str(refresh)}
