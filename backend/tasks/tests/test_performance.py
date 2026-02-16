@@ -1,7 +1,7 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.db import connection
-from django.test.utils import override_settings
+from django.test.utils import override_settings, CaptureQueriesContext
 from tasks.models import Task
 import time
 
@@ -49,9 +49,6 @@ class PerformanceTests(TestCase):
             for i in range(50)
         ])
         
-        # Reset queries
-        connection.queries_log.clear()
-        
         with self.assertNumQueries(1):
             # Should use index on user and status
             tasks = list(Task.objects.filter(
@@ -95,21 +92,22 @@ class PerformanceTests(TestCase):
         ])
         
         # Without select_related - causes N+1 queries
-        connection.queries_log.clear()
-        tasks_without = Task.objects.filter(user=self.user)
-        for task in tasks_without:
-            _ = task.user.email  # Access related user
-        queries_without = len(connection.queries)
+        with CaptureQueriesContext(connection) as context_without:
+            tasks_without = Task.objects.filter(user=self.user)
+            for task in tasks_without:
+                _ = task.user.email  # Access related user
+        queries_without = len(context_without)
         
-        # With select_related - single query
-        connection.queries_log.clear()
-        tasks_with = Task.objects.filter(user=self.user).select_related('user')
-        for task in tasks_with:
-            _ = task.user.email
-        queries_with = len(connection.queries)
+        # With select_related - fewer queries
+        with CaptureQueriesContext(connection) as context_with:
+            tasks_with = Task.objects.filter(user=self.user).select_related('user')
+            for task in tasks_with:
+                _ = task.user.email
+        queries_with = len(context_with)
         
-        # Should have significantly fewer queries
+        # Should have significantly fewer queries (1 vs 11)
         self.assertLess(queries_with, queries_without)
+        self.assertEqual(queries_with, 1)  # Only one query with select_related
 
     def test_filter_deleted_tasks_uses_index(self):
         """Test that filtering deleted tasks uses index."""
