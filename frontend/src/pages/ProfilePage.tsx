@@ -10,15 +10,13 @@ import {
   Shield,
   Save,
   Loader2,
-  Camera,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
+import AvatarUpload from '@/components/profile/AvatarUpload';
 import { useAuthStore } from '@/store/authStore';
 import { updateProfile } from '@/services/api';
 import toast from 'react-hot-toast';
@@ -69,13 +67,6 @@ export default function ProfilePage() {
     updateMutation.mutate(data);
   };
 
-  const getInitials = () => {
-    if (user?.first_name && user?.last_name) {
-      return `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
-    }
-    return user?.email?.[0].toUpperCase() || 'U';
-  };
-
   const getRoleBadge = () => {
     if (user?.is_superuser) {
       return <Badge className="bg-red-500">مدیر ارشد</Badge>;
@@ -100,19 +91,16 @@ export default function ProfilePage() {
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            {/* Avatar */}
-            <div className="relative">
-              <Avatar className="h-24 w-24">
-                <AvatarImage src={user?.avatar} />
-                <AvatarFallback className="text-2xl">{getInitials()}</AvatarFallback>
-              </Avatar>
-              <button
-                className="absolute bottom-0 right-0 p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors"
-                title="آپلود تصویر"
-              >
-                <Camera className="h-4 w-4" />
-              </button>
-            </div>
+            {/* Avatar with Upload */}
+            <AvatarUpload
+              currentAvatar={user?.avatar}
+              userName={
+                user?.first_name && user?.last_name
+                  ? `${user.first_name} ${user.last_name}`
+                  : user?.email || 'User'
+              }
+              onSuccess={() => queryClient.invalidateQueries({ queryKey: ['profile'] })}
+            />
 
             {/* User Info */}
             <div className="flex-1">
