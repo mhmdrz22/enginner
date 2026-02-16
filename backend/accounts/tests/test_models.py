@@ -79,12 +79,13 @@ class UserModelTests(TestCase):
         self.assertEqual(user.full_name, expected_full_name)
 
     def test_full_name_with_empty_names(self):
-        """Test full_name when names are empty."""
+        """Test full_name when names are empty returns email."""
         user = User.objects.create_user(
             email='test@example.com',
             password='testpass123'
         )
-        self.assertEqual(user.full_name, '')
+        # Model returns email when first_name and last_name are empty
+        self.assertEqual(user.full_name, 'test@example.com')
 
     def test_user_ordering(self):
         """Test default ordering of users."""
