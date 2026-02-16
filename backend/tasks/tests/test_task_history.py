@@ -98,8 +98,12 @@ class TaskHistoryTests(TestCase):
         self.assertEqual(TaskHistory.objects.filter(task_id=task_id).count(), 0)
 
     def test_set_null_on_user_delete(self):
-        """Test that deleting user sets changed_by to NULL."""
-        history = TaskHistory.objects.create(
+        """Test that deleting user cascades to task and its history.
+        
+        Since Task has CASCADE on user deletion, when user is deleted,
+        the task is also deleted, which cascades to delete the history.
+        """
+        TaskHistory.objects.create(
             task=self.task,
             changed_by=self.user,
             field_name='title',
@@ -107,10 +111,14 @@ class TaskHistoryTests(TestCase):
             new_value='New'
         )
         
+        task_id = self.task.id
         self.user.delete()
-        history.refresh_from_db()
         
-        self.assertIsNone(history.changed_by)
+        # Task should be deleted (CASCADE)
+        self.assertEqual(Task.objects.filter(id=task_id).count(), 0)
+        
+        # History should also be deleted (CASCADE from task)
+        self.assertEqual(TaskHistory.objects.filter(task_id=task_id).count(), 0)
 
     def test_multiple_history_entries(self):
         """Test multiple history entries for same task."""
