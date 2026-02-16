@@ -1,0 +1,36 @@
+# Build outputs
+dist
+build
+coverage
+.next
+out
+
+# Dependencies
+node_modules
+
+# Cache
+.cache
+.parcel-cache
+.turbo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# Test results
+playwright-report
+test-results
+
+# Lock files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Config files (some should stay formatted)
+*.min.js
+*.min.css
+public
