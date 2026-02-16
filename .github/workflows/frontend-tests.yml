@@ -15,8 +15,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     strategy:
+      fail-fast: false
       matrix:
         node-version: ['18.x', '20.x', '22.x']
 
@@ -28,10 +30,12 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: 'frontend/package-lock.json'
 
     - name: Install dependencies
       working-directory: ./frontend
-      run: npm install
+      run: npm ci
 
     - name: Run linting
       working-directory: ./frontend
@@ -46,34 +50,42 @@ jobs:
     - name: Run unit tests
       working-directory: ./frontend
       run: npm run test:coverage
+      env:
+        NODE_ENV: test
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       with:
-        file: ./frontend/coverage/coverage-final.json
+        files: ./frontend/coverage/coverage-final.json
         flags: frontend
-        name: frontend-coverage
+        name: frontend-node${{ matrix.node-version }}
+        fail_ci_if_error: false
       continue-on-error: true
 
     - name: Upload coverage artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: frontend-coverage-report-node-${{ matrix.node-version }}
+        name: frontend-coverage-node${{ matrix.node-version }}
         path: frontend/coverage/
+        retention-days: 7
       if: always()
 
     - name: Build application
       working-directory: ./frontend
       run: npm run build
+      env:
+        NODE_ENV: production
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: frontend-build-node-${{ matrix.node-version }}
+        name: frontend-build-node${{ matrix.node-version }}
         path: frontend/dist/
+        retention-days: 7
 
   e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: test
 
     steps:
@@ -84,25 +96,30 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20.x'
+        cache: 'npm'
+        cache-dependency-path: 'frontend/package-lock.json'
 
     - name: Install dependencies
       working-directory: ./frontend
-      run: npm install
+      run: npm ci
 
     - name: Install Playwright Browsers
       working-directory: ./frontend
-      run: npx playwright install --with-deps
+      run: npx playwright install --with-deps chromium
 
     - name: Run E2E tests
       working-directory: ./frontend
       run: npm run test:e2e
+      env:
+        CI: true
       continue-on-error: true
 
-    - name: Upload E2E test results
+    - name: Upload Playwright report
       uses: actions/upload-artifact@v4
       with:
         name: playwright-report
         path: frontend/playwright-report/
+        retention-days: 7
       if: always()
 
     - name: Upload E2E screenshots
@@ -110,4 +127,5 @@ jobs:
       with:
         name: playwright-screenshots
         path: frontend/test-results/
+        retention-days: 7
       if: failure()
