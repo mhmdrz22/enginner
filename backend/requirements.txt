@@ -14,6 +14,10 @@ redis>=5.0.1
 django-redis>=5.4.0
 hiredis>=2.3.2
 
+# Celery (Background Tasks)
+celery>=5.3.6
+celery[redis]>=5.3.6
+
 # Security
 cryptography>=42.0.0
 
