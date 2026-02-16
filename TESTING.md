@@ -4,8 +4,8 @@
 
 This project has comprehensive test coverage for both backend and frontend:
 
-- **Backend**: Django/pytest tests with 80%+ coverage target
-- **Frontend**: Vitest unit tests + Playwright E2E tests with 85%+ coverage target
+- **Backend**: Django/pytest tests with PostgreSQL database (80%+ coverage target)
+- **Frontend**: Vitest unit tests + Playwright E2E tests (85%+ coverage target)
 
 ---
 
@@ -13,12 +13,48 @@ This project has comprehensive test coverage for both backend and frontend:
 
 ### Backend Tests (Local)
 
+**Prerequisites:**
+- PostgreSQL 12+ installed and running
+- Python 3.10+
+
+**Option 1: Using Docker for PostgreSQL**
+
+```bash
+# Start PostgreSQL in Docker
+docker run -d \
+  --name postgres-test \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=test_taskboard \
+  -p 5432:5432 \
+  postgres:15-alpine
+```
+
+**Option 2: Using Local PostgreSQL**
+
+```bash
+# Create test database
+psql -U postgres -c "CREATE DATABASE test_taskboard;"
+```
+
+**Run Tests:**
+
 ```bash
 cd backend
 
 # Install test dependencies
 pip install -r requirements.txt
 pip install pytest pytest-django pytest-cov pytest-xdist
+
+# Set environment variables
+export POSTGRES_DB=test_taskboard
+export POSTGRES_USER=postgres
+export POSTGRES_PASSWORD=postgres
+export POSTGRES_HOST=localhost
+export POSTGRES_PORT=5432
+
+# Run migrations
+python manage.py migrate --settings=config.settings.test
 
 # Run all tests
 pytest
@@ -74,10 +110,11 @@ npm run test:e2e:ui
 - `backend/config/settings/test.py` - Test settings
 
 **Key Settings:**
-- Uses **in-memory SQLite** for fast tests (default)
-- Can use PostgreSQL with `USE_POSTGRES_FOR_TESTS=true`
+- Uses **PostgreSQL** for tests (same as production)
+- Database reuse with `--reuse-db` for speed
 - Parallel execution with pytest-xdist
 - Coverage threshold: 80%
+- MD5 password hasher for faster user creation
 
 ### Frontend
 
@@ -99,7 +136,8 @@ npm run test:e2e:ui
 
 1. **Backend Tests** (`.github/workflows/backend-tests.yml`)
    - Runs on: Python 3.10, 3.11, 3.12
-   - Database: SQLite in-memory
+   - Database: PostgreSQL 15 (Docker service)
+   - Migrations run automatically
    - Coverage: Uploaded to Codecov
 
 2. **Frontend Tests** (`.github/workflows/frontend-tests.yml`)
@@ -122,12 +160,26 @@ npm run test:e2e:ui
 **Problem: Tests fail with database errors**
 
 ```bash
-# Solution 1: Clear test database
-rm -f db.sqlite3
-pytest --create-db
+# Solution 1: Reset test database
+psql -U postgres -c "DROP DATABASE IF EXISTS test_taskboard;"
+psql -U postgres -c "CREATE DATABASE test_taskboard;"
+python manage.py migrate --settings=config.settings.test
 
-# Solution 2: Use fresh migrations
-pytest --create-db --migrations
+# Solution 2: Fresh database for each run
+pytest --create-db
+```
+
+**Problem: Connection to PostgreSQL refused**
+
+```bash
+# Check if PostgreSQL is running
+psql -U postgres -c "SELECT version();"
+
+# If using Docker
+docker ps | grep postgres-test
+
+# Start if not running
+docker start postgres-test
 ```
 
 **Problem: Tests are slow**
@@ -136,8 +188,8 @@ pytest --create-db --migrations
 # Use parallel execution
 pytest -n auto
 
-# Use SQLite (faster than PostgreSQL for tests)
-# Already configured by default in test.py
+# Use database reuse (already enabled in pytest.ini)
+pytest --reuse-db
 ```
 
 **Problem: Import errors**
@@ -207,6 +259,7 @@ npm run test:coverage
 3. **Arrange-Act-Assert** pattern
 4. **Mock external dependencies**
 5. **Test edge cases**
+6. **Use database transactions** (automatic in Django tests)
 
 ### Example (Backend)
 
@@ -247,7 +300,8 @@ test('button renders with correct text', () => {
 
 | Error | Solution |
 |-------|----------|
-| `django.db.utils.OperationalError` | Run migrations: `python manage.py migrate` |
+| `django.db.utils.OperationalError: FATAL: database "test_taskboard" does not exist` | Create database: `psql -U postgres -c "CREATE DATABASE test_taskboard;"` |
+| `psycopg2.OperationalError: could not connect` | Check PostgreSQL is running: `pg_isready` |
 | `ImportError: No module named 'xxx'` | Install: `pip install xxx` |
 | `FAILED ... AssertionError` | Check test logic and fixtures |
 
@@ -265,6 +319,7 @@ test('button renders with correct text', () => {
 
 - [Pytest Documentation](https://docs.pytest.org/)
 - [Django Testing](https://docs.djangoproject.com/en/stable/topics/testing/)
+- [pytest-django](https://pytest-django.readthedocs.io/)
 - [Vitest Documentation](https://vitest.dev/)
 - [Playwright Documentation](https://playwright.dev/)
 - [Testing Library](https://testing-library.com/)
@@ -290,6 +345,29 @@ All tests must pass before merging:
 ✅ Linting and type checks
 ✅ Coverage thresholds met
 ✅ Build successful
+
+---
+
+## 🐳 Docker Commands
+
+```bash
+# Start PostgreSQL for tests
+docker run -d --name postgres-test \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=test_taskboard \
+  -p 5432:5432 \
+  postgres:15-alpine
+
+# Stop PostgreSQL
+docker stop postgres-test
+
+# Remove PostgreSQL container
+docker rm postgres-test
+
+# View logs
+docker logs postgres-test
+```
 
 ---
 
