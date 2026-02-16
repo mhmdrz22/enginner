@@ -7,6 +7,7 @@ from django.utils import timezone
 from datetime import timedelta
 from rest_framework.test import APITestCase
 from rest_framework import status
+from rest_framework.authtoken.models import Token
 from tasks.models import Task
 
 
@@ -20,6 +21,7 @@ class TaskAPITests(APITestCase):
         """Set up test client and data with unique users."""
         # CRITICAL: Clean up any leftover data from previous tests
         Task.objects.all().delete()
+        Token.objects.all().delete()
         
         # Generate unique IDs for this test instance
         uid1 = uuid.uuid4().hex[:8]
@@ -38,6 +40,10 @@ class TaskAPITests(APITestCase):
             first_name='User',
             last_name='Two'
         )
+        
+        # Create tokens
+        self.token1 = Token.objects.create(user=self.user1)
+        self.token2 = Token.objects.create(user=self.user2)
         
         # URLs
         self.list_url = reverse('tasks:task-list')
@@ -60,11 +66,15 @@ class TaskAPITests(APITestCase):
         # Create task for user2 (should not appear)
         Task.objects.create(user=self.user2, title='Task 3')
         
-        self.client.force_authenticate(user=self.user1)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
         response = self.client.get(self.list_url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Response uses pagination
+        self.assertIn('count', response.data)
+        self.assertIn('results', response.data)
         self.assertEqual(response.data['count'], 2)
+        self.assertEqual(len(response.data['results']), 2)
 
     def test_list_tasks_unauthenticated(self):
         """Test unauthenticated user cannot list tasks."""
@@ -74,7 +84,7 @@ class TaskAPITests(APITestCase):
 
     def test_create_task_authenticated(self):
         """Test authenticated user can create task."""
-        self.client.force_authenticate(user=self.user1)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
         response = self.client.post(
             self.list_url,
             self.task_data,
@@ -94,7 +104,7 @@ class TaskAPITests(APITestCase):
         data = self.task_data.copy()
         del data['title']
         
-        self.client.force_authenticate(user=self.user1)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
         response = self.client.post(self.list_url, data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -107,7 +117,7 @@ class TaskAPITests(APITestCase):
         )
         
         url = reverse('tasks:task-detail', kwargs={'pk': task.id})
-        self.client.force_authenticate(user=self.user1)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -122,7 +132,7 @@ class TaskAPITests(APITestCase):
         )
         
         url = reverse('tasks:task-detail', kwargs={'pk': task.id})
-        self.client.force_authenticate(user=self.user1)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
         
         update_data = {
             'title': 'Updated Title',
@@ -137,22 +147,23 @@ class TaskAPITests(APITestCase):
         self.assertEqual(task.title, 'Updated Title')
         self.assertEqual(task.status, 'DOING')
 
-    def test_delete_task(self):
-        """Test deleting task (soft delete)."""
+    def test_delete_task_soft_delete(self):
+        """Test deleting task performs soft delete."""
         task = Task.objects.create(
             user=self.user1,
             title='Delete Task'
         )
         
         url = reverse('tasks:task-detail', kwargs={'pk': task.id})
-        self.client.force_authenticate(user=self.user1)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
         response = self.client.delete(url)
         
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         
-        # Verify soft deleted (is_deleted=True)
+        # Verify soft deleted (not hard deleted)
         task.refresh_from_db()
         self.assertTrue(task.is_deleted)
+        self.assertIsNotNone(task.deleted_at)
 
     def test_user_cannot_access_other_user_task(self):
         """Test user cannot access another user's task."""
@@ -162,7 +173,7 @@ class TaskAPITests(APITestCase):
         )
         
         url = reverse('tasks:task-detail', kwargs={'pk': task.id})
-        self.client.force_authenticate(user=self.user1)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -175,7 +186,7 @@ class TaskAPITests(APITestCase):
         )
         
         url = reverse('tasks:task-detail', kwargs={'pk': task.id})
-        self.client.force_authenticate(user=self.user1)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
         
         response = self.client.patch(
             url,
@@ -193,13 +204,14 @@ class TaskAPITests(APITestCase):
         )
         
         url = reverse('tasks:task-detail', kwargs={'pk': task.id})
-        self.client.force_authenticate(user=self.user1)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
         response = self.client.delete(url)
         
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         
         # Verify not deleted
-        Task.objects.get(id=task.id)
+        task.refresh_from_db()
+        self.assertFalse(task.is_deleted)
 
     def test_filter_tasks_by_status(self):
         """Test filtering tasks by status."""
@@ -207,7 +219,7 @@ class TaskAPITests(APITestCase):
         Task.objects.create(user=self.user1, title='Doing', status='DOING')
         Task.objects.create(user=self.user1, title='Done', status='DONE')
         
-        self.client.force_authenticate(user=self.user1)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
         response = self.client.get(f'{self.list_url}?status=TODO')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -219,7 +231,7 @@ class TaskAPITests(APITestCase):
         Task.objects.create(user=self.user1, title='Low', priority='LOW')
         Task.objects.create(user=self.user1, title='High', priority='HIGH')
         
-        self.client.force_authenticate(user=self.user1)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
         response = self.client.get(f'{self.list_url}?priority=HIGH')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -227,7 +239,7 @@ class TaskAPITests(APITestCase):
         self.assertEqual(response.data['results'][0]['priority'], 'HIGH')
 
     def test_mark_task_as_done(self):
-        """Test marking task as done."""
+        """Test marking task as done sets completed_at."""
         task = Task.objects.create(
             user=self.user1,
             title='Complete Me',
@@ -235,7 +247,7 @@ class TaskAPITests(APITestCase):
         )
         
         url = reverse('tasks:task-detail', kwargs={'pk': task.id})
-        self.client.force_authenticate(user=self.user1)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
         
         response = self.client.patch(
             url,
@@ -246,3 +258,52 @@ class TaskAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         task.refresh_from_db()
         self.assertEqual(task.status, 'DONE')
+        self.assertIsNotNone(task.completed_at)
+
+    def test_restore_deleted_task(self):
+        """Test restoring a soft-deleted task."""
+        task = Task.objects.create(
+            user=self.user1,
+            title='Deleted Task'
+        )
+        task.soft_delete()
+        
+        url = reverse('tasks:task-restore', kwargs={'pk': task.id})
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
+        response = self.client.post(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        task.refresh_from_db()
+        self.assertFalse(task.is_deleted)
+        self.assertIsNone(task.deleted_at)
+
+    def test_get_task_history(self):
+        """Test getting task history."""
+        task = Task.objects.create(
+            user=self.user1,
+            title='Task with History'
+        )
+        
+        url = reverse('tasks:task-history', kwargs={'pk': task.id})
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsInstance(response.data, list)
+
+    def test_get_statistics(self):
+        """Test getting task statistics."""
+        # Create various tasks
+        Task.objects.create(user=self.user1, title='Todo', status='TODO')
+        Task.objects.create(user=self.user1, title='Doing', status='DOING')
+        Task.objects.create(user=self.user1, title='Done', status='DONE')
+        
+        url = reverse('tasks:task-statistics')
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('total', response.data)
+        self.assertIn('by_status', response.data)
+        self.assertIn('by_priority', response.data)
+        self.assertEqual(response.data['total'], 3)
