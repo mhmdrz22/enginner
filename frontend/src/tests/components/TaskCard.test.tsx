@@ -44,7 +44,8 @@ describe('TaskCard Component', () => {
 
   it('displays due date', () => {
     render(<TaskCard task={mockTask} />, { wrapper });
-    expect(screen.getByText(/Feb/)).toBeInTheDocument();
+    // Date is displayed in Persian format: "فور 20" (Feb 20)
+    expect(screen.getByText(/فور 20/)).toBeInTheDocument();
   });
 
   it('displays tags', () => {
@@ -59,11 +60,18 @@ describe('TaskCard Component', () => {
 
     render(<TaskCard task={mockTask} onDelete={onDelete} />, { wrapper });
 
-    // Open menu and click delete
-    const menuButton = screen.getByRole('button', { name: /more/i });
+    // Find the menu button by aria-haspopup attribute (it has no text/label)
+    const menuButton = screen.getByRole('button', { 
+      hidden: false,
+      name: '' // Empty name because button has no aria-label
+    });
+    
+    // Make button visible first (it has opacity-0 group-hover:opacity-100)
+    await user.hover(screen.getByText('Test Task'));
     await user.click(menuButton);
 
-    const deleteButton = screen.getByRole('menuitem', { name: /حذف/i });
+    // Wait for menu to open and find delete option
+    const deleteButton = await screen.findByRole('menuitem', { name: /حذف/i });
     await user.click(deleteButton);
 
     expect(onDelete).toHaveBeenCalled();
