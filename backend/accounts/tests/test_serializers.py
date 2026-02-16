@@ -17,7 +17,8 @@ class RegisterSerializerTests(TestCase):
         uid = uuid.uuid4().hex[:8]
         data = {
             'email': f'test_{uid}@example.com',
-            'username': f'testuser_{uid}',
+            'first_name': 'Test',
+            'last_name': 'User',
             'password': 'StrongPass123!',
             'password2': 'StrongPass123!'
         }
@@ -30,7 +31,8 @@ class RegisterSerializerTests(TestCase):
         uid = uuid.uuid4().hex[:8]
         data = {
             'email': f'test_{uid}@example.com',
-            'username': f'testuser_{uid}',
+            'first_name': 'Test',
+            'last_name': 'User',
             'password': 'Pass123!',
             'password2': 'DifferentPass123!'
         }
@@ -40,10 +42,10 @@ class RegisterSerializerTests(TestCase):
 
     def test_invalid_email_format(self):
         """Test registration fails with invalid email."""
-        uid = uuid.uuid4().hex[:8]
         data = {
             'email': 'invalid-email',
-            'username': f'testuser_{uid}',
+            'first_name': 'Test',
+            'last_name': 'User',
             'password': 'Pass123!',
             'password2': 'Pass123!'
         }
@@ -56,7 +58,8 @@ class RegisterSerializerTests(TestCase):
         uid = uuid.uuid4().hex[:8]
         data = {
             'email': f'test_{uid}@example.com',
-            'username': f'testuser_{uid}',
+            'first_name': 'Test',
+            'last_name': 'User',
             'password': '123',
             'password2': '123'
         }
@@ -71,13 +74,15 @@ class RegisterSerializerTests(TestCase):
         
         User.objects.create_user(
             email=email,
-            username=f'existing_{uid}',
-            password='Pass123!'
+            password='Pass123!',
+            first_name='Existing',
+            last_name='User'
         )
         
         data = {
             'email': email,
-            'username': f'newuser_{uid}',
+            'first_name': 'New',
+            'last_name': 'User',
             'password': 'Pass123!',
             'password2': 'Pass123!'
         }
@@ -90,7 +95,8 @@ class RegisterSerializerTests(TestCase):
         uid = uuid.uuid4().hex[:8]
         data = {
             'email': f'test_{uid}@example.com',
-            'username': f'testuser_{uid}',
+            'first_name': 'Test',
+            'last_name': 'User',
             'password': 'Pass123!',
             'password2': 'Pass123!'
         }
@@ -111,8 +117,9 @@ class UserSerializerTests(TestCase):
         uid = uuid.uuid4().hex[:8]
         self.user = User.objects.create_user(
             email=f'test_{uid}@example.com',
-            username=f'testuser_{uid}',
-            password='Pass123!'
+            password='Pass123!',
+            first_name='Test',
+            last_name='User'
         )
 
     def test_user_serialization(self):
@@ -121,7 +128,8 @@ class UserSerializerTests(TestCase):
         data = serializer.data
         
         self.assertEqual(data['email'], self.user.email)
-        self.assertEqual(data['username'], self.user.username)
+        self.assertEqual(data['first_name'], self.user.first_name)
+        self.assertEqual(data['last_name'], self.user.last_name)
         self.assertNotIn('password', data)
 
     def test_user_deserialization(self):
@@ -129,7 +137,8 @@ class UserSerializerTests(TestCase):
         uid = uuid.uuid4().hex[:8]
         data = {
             'email': f'new_{uid}@example.com',
-            'username': f'newuser_{uid}'
+            'first_name': 'New',
+            'last_name': 'User'
         }
         
         serializer = UserSerializer(data=data)
