@@ -6,8 +6,8 @@ Use: DJANGO_SETTINGS_MODULE=config.settings.test
 import os
 from .base import *
 
-# Debug off for testing (closer to production)
-DEBUG = False
+# Debug ON for testing (avoid static file issues)
+DEBUG = True
 
 # Mark that we're in testing mode
 TESTING = True
@@ -39,13 +39,16 @@ DATABASES = {
     }
 }
 
-# Cache - Use local memory cache for tests
+# Cache - Use local memory cache for tests (no Redis needed)
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
         'LOCATION': 'test-cache',
     }
 }
+
+# Session - Use database backend for tests (simpler than cache)
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
 # Use faster password hasher for tests (dramatically speeds up user creation)
 PASSWORD_HASHERS = [
@@ -61,9 +64,11 @@ CELERY_TASK_EAGER_PROPAGATES = True
 
 # Static files - Use default for tests
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles_test')
+STATIC_URL = '/static/'
 
 # Media files - Use temporary directory
 MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles_test')
+MEDIA_URL = '/media/'
 
 # Logging - Minimal logging in tests (only errors)
 LOGGING = {
