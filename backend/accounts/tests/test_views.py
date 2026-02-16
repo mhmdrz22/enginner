@@ -6,7 +6,7 @@ from django.urls import reverse
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from rest_framework import status
-from rest_framework.authtoken.models import Token
+from rest_framework_simplejwt.tokens import RefreshToken
 
 
 User = get_user_model()
@@ -27,15 +27,17 @@ class UserAuthenticationTests(TestCase):
         
         self.user_data = {
             'email': f'test_{uid_new}@example.com',
-            'username': f'testuser_{uid_new}',
+            'first_name': 'Test',
+            'last_name': 'User',
             'password': 'TestPass123!',
             'password2': 'TestPass123!'
         }
         
         self.existing_user = User.objects.create_user(
             email=f'existing_{uid_existing}@example.com',
-            username=f'existing_{uid_existing}',
-            password='ExistingPass123!'
+            password='ExistingPass123!',
+            first_name='Existing',
+            last_name='User'
         )
 
     def test_user_registration_success(self):
@@ -59,10 +61,10 @@ class UserAuthenticationTests(TestCase):
 
     def test_user_registration_with_existing_email(self):
         """Test registration fails with existing email."""
-        uid = uuid.uuid4().hex[:8]
         data = {
             'email': self.existing_user.email,  # Use existing email
-            'username': f'newuser_{uid}',
+            'first_name': 'New',
+            'last_name': 'User',
             'password': 'Pass123!',
             'password2': 'Pass123!'
         }
@@ -113,7 +115,8 @@ class UserAuthenticationTests(TestCase):
         )
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('token', response.data)
+        self.assertIn('access', response.data)
+        self.assertIn('refresh', response.data)
         self.assertIn('user', response.data)
 
     def test_user_login_invalid_credentials(self):
@@ -129,7 +132,7 @@ class UserAuthenticationTests(TestCase):
             format='json'
         )
         
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_user_login_nonexistent_user(self):
         """Test login fails for non-existent user."""
@@ -145,7 +148,7 @@ class UserAuthenticationTests(TestCase):
             format='json'
         )
         
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
 class AuthenticatedUserTests(TestCase):
@@ -157,32 +160,35 @@ class AuthenticatedUserTests(TestCase):
         uid = uuid.uuid4().hex[:8]
         self.user = User.objects.create_user(
             email=f'auth_{uid}@example.com',
-            username=f'authuser_{uid}',
-            password='AuthPass123!'
+            password='AuthPass123!',
+            first_name='Auth',
+            last_name='User'
         )
-        self.token = Token.objects.create(user=self.user)
-        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token.key}')
         self.profile_url = reverse('accounts:profile')
 
     def test_get_user_profile(self):
         """Test authenticated user can get their profile."""
+        self.client.force_authenticate(user=self.user)
         response = self.client.get(self.profile_url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['email'], self.user.email)
-        self.assertEqual(response.data['username'], self.user.username)
+        self.assertEqual(response.data['first_name'], self.user.first_name)
+        self.assertEqual(response.data['last_name'], self.user.last_name)
 
     def test_unauthenticated_profile_access(self):
         """Test unauthenticated user cannot access profile."""
-        self.client.credentials()  # Remove authentication
         response = self.client.get(self.profile_url)
         
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_update_user_profile(self):
         """Test user can update their profile."""
-        uid = uuid.uuid4().hex[:8]
-        data = {'username': f'updateduser_{uid}'}
+        self.client.force_authenticate(user=self.user)
+        data = {
+            'first_name': 'Updated',
+            'last_name': 'Name'
+        }
         response = self.client.patch(
             self.profile_url,
             data,
@@ -191,4 +197,5 @@ class AuthenticatedUserTests(TestCase):
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.user.refresh_from_db()
-        self.assertEqual(self.user.username, f'updateduser_{uid}')
+        self.assertEqual(self.user.first_name, 'Updated')
+        self.assertEqual(self.user.last_name, 'Name')
