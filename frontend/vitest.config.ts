@@ -8,22 +8,40 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/tests/setup.ts'],
+    // Exclude Playwright E2E tests from Vitest
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/e2e/**',
+      '**/.{idea,git,cache,output,temp}/**',
+      '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*',
+    ],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html', 'lcov'],
+      reporter: ['text', 'html', 'lcov', 'json'],
       exclude: [
         'node_modules/',
         'src/tests/',
+        'e2e/',
         '**/*.test.{ts,tsx}',
         '**/*.spec.{ts,tsx}',
         '**/dist/',
         '**/*.config.{js,ts}',
+        '**/coverage/**',
+        '**/.{git,cache,output,temp}/**',
       ],
       all: true,
       lines: 80,
       functions: 80,
       branches: 80,
       statements: 80,
+      // Fail on low coverage
+      thresholds: {
+        lines: 80,
+        functions: 80,
+        branches: 80,
+        statements: 80,
+      },
     },
   },
   resolve: {
