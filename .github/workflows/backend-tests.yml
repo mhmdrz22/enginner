@@ -75,11 +75,11 @@ jobs:
     - name: Run migrations
       working-directory: ./backend
       env:
-        DATABASE_NAME: test_taskboard
-        DATABASE_USER: postgres
-        DATABASE_PASSWORD: postgres
-        DATABASE_HOST: localhost
-        DATABASE_PORT: 5432
+        POSTGRES_DB: test_taskboard
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: postgres
+        POSTGRES_HOST: localhost
+        POSTGRES_PORT: 5432
         REDIS_URL: redis://localhost:6379/1
         SECRET_KEY: test-secret-key-for-ci
         DEBUG: True
@@ -89,11 +89,11 @@ jobs:
     - name: Run tests with coverage
       working-directory: ./backend
       env:
-        DATABASE_NAME: test_taskboard
-        DATABASE_USER: postgres
-        DATABASE_PASSWORD: postgres
-        DATABASE_HOST: localhost
-        DATABASE_PORT: 5432
+        POSTGRES_DB: test_taskboard
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: postgres
+        POSTGRES_HOST: localhost
+        POSTGRES_PORT: 5432
         REDIS_URL: redis://localhost:6379/1
         SECRET_KEY: test-secret-key-for-ci
         DEBUG: True
