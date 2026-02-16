@@ -1,11 +1,39 @@
-Django==4.2.7
-djangorestframework==3.14.0
-psycopg2-binary==2.9.9
-python-decouple==3.8
-django-cors-headers==4.3.1
-gunicorn==21.2.0
-drf-yasg==1.21.7
-celery==5.3.4
-redis==5.0.1
-django-filter==23.3
-dj-database-url==2.1.0
+# Django Core
+Django>=4.2,<5.0
+psycopg2-binary>=2.9.9
+gunicorn>=21.2.0
+
+# Django REST Framework
+djangorestframework>=3.14.0
+djangorestframework-simplejwt>=5.3.1
+django-cors-headers>=4.3.1
+django-filter>=23.5
+
+# Redis & Caching
+redis>=5.0.1
+django-redis>=5.4.0
+hiredis>=2.3.2
+
+# Security
+cryptography>=42.0.0
+
+# Utilities
+python-dotenv>=1.0.0
+Pillow>=10.2.0
+
+# Development & Testing
+pytest>=7.4.4
+pytest-django>=4.7.0
+pytest-cov>=4.1.0
+faker>=22.6.0
+factory-boy>=3.3.0
+
+# Code Quality
+black>=24.1.1
+flake8>=7.0.0
+isort>=5.13.2
+pylint>=3.0.3
+mypy>=1.8.0
+
+# Documentation
+drf-spectacular>=0.27.1
