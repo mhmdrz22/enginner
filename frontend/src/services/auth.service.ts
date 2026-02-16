@@ -2,8 +2,8 @@ import apiClient from '@/lib/api-client'
 import type { LoginRequest, LoginResponse, RegisterRequest, User } from '@/types'
 
 export const authService = {
-  async login(data: LoginRequest): Promise<LoginResponse> {
-    const response = await apiClient.post('/accounts/login/', data)
+  async login(credentials: LoginRequest): Promise<LoginResponse> {
+    const response = await apiClient.post<LoginResponse>('/accounts/login/', credentials)
     return response.data
   },
 
@@ -17,12 +17,12 @@ export const authService = {
   },
 
   async getProfile(): Promise<User> {
-    const response = await apiClient.get('/accounts/profile/')
+    const response = await apiClient.get<User>('/accounts/profile/')
     return response.data
   },
 
   async updateProfile(data: Partial<User>): Promise<User> {
-    const response = await apiClient.patch('/accounts/profile/', data)
+    const response = await apiClient.patch<User>('/accounts/profile/', data)
     return response.data
   },
 

@@ -1,20 +1,30 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { authService } from '@/services/auth.service'
 import { useAuthStore } from '@/stores/auth-store'
+import { authService } from '@/services/auth.service'
 import type { LoginRequest, RegisterRequest } from '@/types'
 
 export function useAuth() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
-  const { setUser, setTokens, logout: logoutStore } = useAuthStore()
+  const { user, setUser, setTokens, logout: logoutStore } = useAuthStore()
 
+  // Get current user profile
+  const { data: profile, isLoading: isLoadingProfile } = useQuery({
+    queryKey: ['profile'],
+    queryFn: authService.getProfile,
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // Login mutation
   const loginMutation = useMutation({
-    mutationFn: (data: LoginRequest) => authService.login(data),
+    mutationFn: authService.login,
     onSuccess: (data) => {
-      setUser(data.user)
       setTokens(data.access, data.refresh)
+      setUser(data.user)
+      queryClient.setQueryData(['profile'], data.user)
       toast.success('Welcome back!')
       navigate('/dashboard')
     },
@@ -23,10 +33,11 @@ export function useAuth() {
     },
   })
 
+  // Register mutation
   const registerMutation = useMutation({
-    mutationFn: (data: RegisterRequest) => authService.register(data),
+    mutationFn: authService.register,
     onSuccess: (data) => {
-      toast.success(data.message)
+      toast.success(data.message || 'Registration successful! Please login.')
       navigate('/login')
     },
     onError: (error: any) => {
@@ -35,8 +46,9 @@ export function useAuth() {
     },
   })
 
+  // Logout mutation
   const logoutMutation = useMutation({
-    mutationFn: () => authService.logout(),
+    mutationFn: authService.logout,
     onSuccess: () => {
       logoutStore()
       queryClient.clear()
@@ -45,31 +57,25 @@ export function useAuth() {
     },
   })
 
-  const profileQuery = useQuery({
-    queryKey: ['profile'],
-    queryFn: () => authService.getProfile(),
-    enabled: !!useAuthStore.getState().token,
-  })
-
+  // Update profile mutation
   const updateProfileMutation = useMutation({
-    mutationFn: (data: Partial<any>) => authService.updateProfile(data),
+    mutationFn: authService.updateProfile,
     onSuccess: (data) => {
       setUser(data)
-      queryClient.invalidateQueries({ queryKey: ['profile'] })
+      queryClient.setQueryData(['profile'], data)
       toast.success('Profile updated successfully')
     },
   })
 
   return {
+    user: profile || user,
+    isLoading: isLoadingProfile,
     login: loginMutation.mutate,
+    isLoggingIn: loginMutation.isPending,
     register: registerMutation.mutate,
+    isRegistering: registerMutation.isPending,
     logout: logoutMutation.mutate,
     updateProfile: updateProfileMutation.mutate,
-    profile: profileQuery.data,
-    isLoggingIn: loginMutation.isPending,
-    isRegistering: registerMutation.isPending,
-    isLoggingOut: logoutMutation.isPending,
     isUpdatingProfile: updateProfileMutation.isPending,
-    isLoadingProfile: profileQuery.isLoading,
   }
 }
