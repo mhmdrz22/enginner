@@ -8,11 +8,14 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/tests/setup.ts'],
+    // Only include Vitest test files (*.test.ts, *.test.tsx)
+    include: ['**/*.test.{ts,tsx}'],
     // Exclude Playwright E2E tests from Vitest
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
-      '**/e2e/**',
+      '**/e2e/**',                    // Playwright E2E directory
+      '**/*.spec.{ts,tsx}',           // Playwright spec files
       '**/.{idea,git,cache,output,temp}/**',
       '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*',
     ],
