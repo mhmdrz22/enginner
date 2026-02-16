@@ -113,6 +113,7 @@ export default function TaskCard({ task, onDelete, onEdit, isDragging }: TaskCar
                 variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                aria-label="Task options menu"
               >
                 <MoreVertical className="h-4 w-4" />
               </Button>
