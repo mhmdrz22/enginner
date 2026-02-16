@@ -12,8 +12,10 @@ import LoadingSpinner from '@/components/ui/loading-spinner';
 // Lazy load pages for code splitting
 const Login = lazy(() => import('@/pages/Login'));
 const Register = lazy(() => import('@/pages/Register'));
+const ForgotPassword = lazy(() => import('@/pages/ForgotPassword'));
 const Dashboard = lazy(() => import('@/pages/Dashboard'));
 const TasksPage = lazy(() => import('@/pages/TasksPage'));
+const TaskDetailPage = lazy(() => import('@/pages/TaskDetailPage'));
 const ProfilePage = lazy(() => import('@/pages/ProfilePage'));
 
 // Protected Route wrapper
@@ -92,6 +94,14 @@ function App() {
                 </PublicRoute>
               }
             />
+            <Route
+              path="/forgot-password"
+              element={
+                <PublicRoute>
+                  <ForgotPassword />
+                </PublicRoute>
+              }
+            />
 
             {/* Protected Routes with Layout */}
             <Route
@@ -105,6 +115,7 @@ function App() {
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="tasks" element={<TasksPage />} />
+              <Route path="tasks/:id" element={<TaskDetailPage />} />
               <Route path="profile" element={<ProfilePage />} />
             </Route>
 
