@@ -1,0 +1,305 @@
+import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Loader2, Mail, Lock, User, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+import { register as registerUser } from '@/services/api';
+import toast from 'react-hot-toast';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+
+const registerSchema = z.object({
+  email: z.string().email('ایمیل معتبر وارد کنید'),
+  first_name: z.string().min(2, 'نام حداقل ۲ کاراکتر باشد'),
+  last_name: z.string().min(2, 'نام خانوادگی حداقل ۲ کاراکتر باشد'),
+  password: z.string()
+    .min(8, 'رمز عبور حداقل ۸ کاراکتر باشد')
+    .regex(/[A-Z]/, 'حداقل یک حرف بزرگ داشته باشد')
+    .regex(/[0-9]/, 'حداقل یک عدد داشته باشد'),
+  confirm_password: z.string(),
+  terms: z.boolean().refine((val) => val === true, {
+    message: 'باید قوانین را بپذیرید',
+  }),
+}).refine((data) => data.password === data.confirm_password, {
+  message: 'رمزهای عبور یکسان نیستند',
+  path: ['confirm_password'],
+});
+
+type RegisterFormData = z.infer<typeof registerSchema>;
+
+export default function Register() {
+  const navigate = useNavigate();
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors },
+  } = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      email: '',
+      first_name: '',
+      last_name: '',
+      password: '',
+      confirm_password: '',
+      terms: false,
+    },
+  });
+
+  const password = watch('password');
+
+  // چک قدرت رمز عبور
+  const getPasswordStrength = (pwd: string) => {
+    let strength = 0;
+    if (pwd.length >= 8) strength++;
+    if (pwd.length >= 12) strength++;
+    if (/[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) strength++;
+    if (/[0-9]/.test(pwd)) strength++;
+    if (/[^a-zA-Z0-9]/.test(pwd)) strength++;
+    return strength;
+  };
+
+  const passwordStrength = getPasswordStrength(password);
+  const strengthLabels = ['ضعیف', 'متوسط', 'خوب', 'عالی', 'عالی'];
+  const strengthColors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500', 'bg-green-600'];
+
+  const onSubmit = async (data: RegisterFormData) => {
+    setIsLoading(true);
+    try {
+      await registerUser({
+        email: data.email,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        password: data.password,
+      });
+      
+      toast.success('ثبت نام با موفقیت انجام شد! لطفا وارد شوید.');
+      navigate('/login');
+    } catch (error: any) {
+      console.error('Register error:', error);
+      
+      if (error.response?.data?.email) {
+        toast.error('این ایمیل قبلا ثبت شده است');
+      } else if (error.response?.data?.detail) {
+        toast.error(error.response.data.detail);
+      } else {
+        toast.error('خطا در ثبت نام. لطفا دوباره تلاش کنید');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4">
+      <Card className="w-full max-w-md shadow-xl">
+        <CardHeader className="space-y-1 text-center">
+          <CardTitle className="text-3xl font-bold">عضویت</CardTitle>
+          <CardDescription>
+            برای استفاده از امکانات ثبت نام کنید
+          </CardDescription>
+        </CardHeader>
+        
+        <CardContent>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {/* Email */}
+            <div className="space-y-2">
+              <Label htmlFor="email">ایمیل</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="example@email.com"
+                  className="pl-10"
+                  disabled={isLoading}
+                  {...register('email')}
+                />
+              </div>
+              {errors.email && (
+                <p className="text-sm text-red-500">{errors.email.message}</p>
+              )}
+            </div>
+
+            {/* First Name & Last Name */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="first_name">نام</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="first_name"
+                    type="text"
+                    placeholder="علی"
+                    className="pl-10"
+                    disabled={isLoading}
+                    {...register('first_name')}
+                  />
+                </div>
+                {errors.first_name && (
+                  <p className="text-sm text-red-500">{errors.first_name.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="last_name">نام خانوادگی</Label>
+                <Input
+                  id="last_name"
+                  type="text"
+                  placeholder="رضایی"
+                  disabled={isLoading}
+                  {...register('last_name')}
+                />
+                {errors.last_name && (
+                  <p className="text-sm text-red-500">{errors.last_name.message}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Password */}
+            <div className="space-y-2">
+              <Label htmlFor="password">رمز عبور</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  className="pl-10 pr-10"
+                  disabled={isLoading}
+                  {...register('password')}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {errors.password && (
+                <p className="text-sm text-red-500">{errors.password.message}</p>
+              )}
+              
+              {/* Password Strength Indicator */}
+              {password && password.length > 0 && (
+                <div className="space-y-1">
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((level) => (
+                      <div
+                        key={level}
+                        className={`h-1 flex-1 rounded-full transition-colors ${
+                          level <= passwordStrength
+                            ? strengthColors[passwordStrength - 1]
+                            : 'bg-gray-200 dark:bg-gray-700'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    قدرت رمز: <span className="font-medium">{strengthLabels[passwordStrength - 1] || 'ضعین'}</span>
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Confirm Password */}
+            <div className="space-y-2">
+              <Label htmlFor="confirm_password">تکرار رمز عبور</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  id="confirm_password"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  className="pl-10 pr-10"
+                  disabled={isLoading}
+                  {...register('confirm_password')}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                  tabIndex={-1}
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {errors.confirm_password && (
+                <p className="text-sm text-red-500">{errors.confirm_password.message}</p>
+              )}
+            </div>
+
+            {/* Terms Checkbox */}
+            <div className="flex items-start space-x-2 space-x-reverse">
+              <input
+                type="checkbox"
+                id="terms"
+                className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                disabled={isLoading}
+                {...register('terms')}
+              />
+              <Label htmlFor="terms" className="text-sm cursor-pointer leading-relaxed">
+                قوانین و مقررات استفاده از سرویس را می‌پذیرم
+              </Label>
+            </div>
+            {errors.terms && (
+              <p className="text-sm text-red-500">{errors.terms.message}</p>
+            )}
+
+            {/* Submit Button */}
+            <Button
+              type="submit"
+              className="w-full"
+              size="lg"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  در حال ثبت نام...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  ثبت نام
+                </>
+              )}
+            </Button>
+          </form>
+        </CardContent>
+
+        <CardFooter className="flex flex-col space-y-4">
+          <div className="relative w-full">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white dark:bg-gray-950 px-2 text-gray-500">
+                یا
+              </span>
+            </div>
+          </div>
+
+          <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+            قبلا ثبت نام کرده‌اید؟{' '}
+            <Link
+              to="/login"
+              className="font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400"
+            >
+              ورود به حساب
+            </Link>
+          </p>
+        </CardFooter>
+      </Card>
+    </div>
+  );
+}
