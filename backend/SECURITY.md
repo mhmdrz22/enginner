@@ -1,344 +1,469 @@
 # Security Features Documentation
 
-## Overview
+Comprehensive security implementation for TaskBoard application.
 
-Comprehensive security implementation with enterprise-grade features for authentication, authorization, and compliance.
+## Table of Contents
+
+1. [Email Verification](#email-verification)
+2. [Password Reset Flow](#password-reset-flow)
+3. [Rate Limiting](#rate-limiting)
+4. [Two-Factor Authentication (2FA)](#two-factor-authentication-2fa)
+5. [Account Lockout](#account-lockout)
+6. [Password Policy](#password-policy)
+7. [GDPR Compliance](#gdpr-compliance)
+8. [Configuration](#configuration)
+9. [Testing](#testing)
+10. [Deployment Checklist](#deployment-checklist)
 
 ---
 
-## ✅ Implemented Features
+## Email Verification
 
-### 1. Email Verification
-
-**Purpose**: Verify user email addresses to prevent fake accounts.
-
-**Implementation**:
+### Features
 - Secure token generation (32-byte URL-safe)
-- 24-hour token expiry
-- Resend verification email capability
-- Email templates for professional appearance
+- Token expiration (24 hours)
+- Verification status tracking
+- Resend verification capability
 
-**Endpoints**:
+### API Endpoints
+
 ```
+POST /api/accounts/register/
+- Registers user and sends verification email
+- Returns: User data + verification sent message
+
 POST /api/accounts/verify-email/
+Body: {"token": "verification_token"}
+- Verifies email with token
+- Returns: Success or error message
+
 POST /api/accounts/resend-verification/
+Body: {"email": "user@example.com"}
+- Resends verification email
+- Rate limited: 3/hour
 ```
 
-**Flow**:
-1. User registers → Email sent with verification link
-2. User clicks link → Token validated
-3. Email verified → User can access full features
+### Usage Example
 
----
-
-### 2. Password Reset Flow
-
-**Purpose**: Secure password recovery mechanism.
-
-**Implementation**:
-- Secure reset tokens with 1-hour expiry
-- Email notification on reset request
-- Token validation before password change
-- Password history check (prevent reuse)
-
-**Endpoints**:
-```
-POST /api/accounts/password-reset/
-POST /api/accounts/password-reset-confirm/
-```
-
-**Flow**:
-1. User requests reset → Email with reset link
-2. User clicks link → Token validated
-3. User sets new password → Old passwords rejected
-
----
-
-### 3. Rate Limiting
-
-**Purpose**: Prevent brute force and DoS attacks.
-
-**Implementation**:
-- Per-user rate limiting using Redis/cache
-- IP-based rate limiting for anonymous users
-- Configurable limits per endpoint
-- Custom rate limiters for sensitive operations
-
-**Limits**:
 ```python
-Login: 5 attempts/minute
-Registration: 3 attempts/hour
-Password Reset: 3 attempts/hour
-API Calls: 100 requests/minute (authenticated)
-Sensitive Operations: 10 requests/minute
-```
+# Register user
+response = requests.post('/api/accounts/register/', {
+    'email': 'user@example.com',
+    'password': 'SecurePass123!',
+    'password2': 'SecurePass123!',
+    'first_name': 'John',
+    'last_name': 'Doe',
+    'gdpr_consent': True
+})
 
-**Classes**:
-- `LoginRateThrottle`
-- `RegisterRateThrottle`
-- `PasswordResetRateThrottle`
-- `APIRateThrottle`
-- `StrictAPIRateThrottle`
-- `PerUserRateLimiter` (custom)
+# User receives email with verification link
+# Click link or call API:
+response = requests.post('/api/accounts/verify-email/', {
+    'token': 'received_token'
+})
+```
 
 ---
 
-### 4. Two-Factor Authentication (2FA)
+## Password Reset Flow
 
-**Purpose**: Add extra security layer with TOTP.
+### Features
+- Secure token generation
+- Token expiration (1 hour)
+- Email notification
+- Rate limiting (3 requests/hour)
 
-**Implementation**:
-- TOTP-based (Time-based One-Time Password)
-- Compatible with Google Authenticator, Authy
-- QR code generation for easy setup
-- 10 backup codes for recovery
-- Optional feature (user can enable/disable)
+### API Endpoints
 
-**Endpoints**:
 ```
-POST /api/accounts/2fa/setup/
-POST /api/accounts/2fa/verify/
+POST /api/accounts/password-reset/request/
+Body: {"email": "user@example.com"}
+- Sends password reset email
+- Rate limited: 3/hour
+
+POST /api/accounts/password-reset/confirm/
+Body: {
+    "token": "reset_token",
+    "password": "NewSecurePass123!",
+    "password2": "NewSecurePass123!"
+}
+- Resets password with token
+- Validates password policy
+- Checks password history
+```
+
+### Flow
+
+1. User requests password reset
+2. System sends email with reset link
+3. User clicks link (valid for 1 hour)
+4. User enters new password
+5. System validates password policy
+6. System checks password history (last 5)
+7. Password updated, notification sent
+
+---
+
+## Rate Limiting
+
+### Implementation
+
+**Redis-based throttling** for all sensitive endpoints.
+
+### Rate Limits
+
+| Endpoint | Limit | Window |
+|----------|-------|--------|
+| Login | 5 attempts | 1 hour |
+| Password Reset | 3 requests | 1 hour |
+| Email Verification | 3 requests | 1 hour |
+| General API (Auth) | 1000 requests | 1 hour |
+| General API (Anon) | 100 requests | 1 hour |
+
+### Configuration
+
+```python
+# settings.py
+REST_FRAMEWORK = {
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/hour',
+        'user': '1000/hour',
+        'login': '5/hour',
+        'password_reset': '3/hour',
+    },
+}
+```
+
+### Custom Rate Limiting
+
+```python
+from accounts.security import rate_limit
+
+@rate_limit('custom_action', limit=10, period=3600)
+def my_view(request):
+    # Only 10 requests per hour
+    pass
+```
+
+---
+
+## Two-Factor Authentication (2FA)
+
+### Features
+- TOTP-based (RFC 6238)
+- Google Authenticator compatible
+- QR code generation
+- 10 backup codes
+- Optional per user
+
+### API Endpoints
+
+```
+POST /api/accounts/2fa/enable/
+Body: {"password": "current_password"}
+- Enables 2FA
+- Returns: QR code, secret, backup codes
+
 POST /api/accounts/2fa/disable/
-GET /api/accounts/2fa/backup-codes/
+Body: {"password": "current_password"}
+- Disables 2FA
+
+POST /api/accounts/2fa/verify/
+Body: {"code": "123456"}
+- Verifies 2FA code
+- Accepts TOTP or backup code
+
+GET /api/accounts/2fa/qr-code/
+- Gets QR code and backup codes
 ```
 
-**Flow**:
-1. User enables 2FA → QR code generated
-2. User scans QR in authenticator app
-3. User verifies with 6-digit code
-4. 2FA enabled + backup codes provided
-5. Login requires password + 2FA code
+### Setup Flow
+
+1. User enables 2FA with password
+2. System generates secret and backup codes
+3. User scans QR code with authenticator app
+4. User verifies with first code
+5. User saves backup codes securely
+
+### Login with 2FA
+
+1. User enters email + password
+2. System verifies credentials
+3. System prompts for 2FA code
+4. User enters TOTP code
+5. System verifies code
+6. Session marked as 2FA verified
 
 ---
 
-### 5. Account Lockout
+## Account Lockout
 
-**Purpose**: Prevent brute force login attacks.
+### Features
+- Automatic lockout after failed attempts
+- Configurable threshold (default: 5)
+- Timed lockout (default: 30 minutes)
+- Email notification
+- Admin unlock capability
 
-**Implementation**:
-- Track failed login attempts per user
-- Automatic lockout after 5 failed attempts
-- 30-minute lockout duration
-- Email notification on lockout
-- Admin can manually unlock
-
-**Features**:
-- Failed attempt counter
-- Lockout expiry timestamp
-- Automatic unlock after duration
-- Reset counter on successful login
-
----
-
-### 6. Password Policy
-
-**Purpose**: Enforce strong passwords.
-
-**Requirements**:
-- ✅ Minimum 8 characters
-- ✅ At least 1 uppercase letter
-- ✅ At least 1 lowercase letter
-- ✅ At least 1 digit
-- ✅ At least 1 special character
-- ✅ Not in common password list (25+ blacklisted)
-- ✅ Cannot contain user info (email, name)
-- ✅ Cannot reuse last 5 passwords
-
-**Password Strength Meter**:
-```
-0-29: Weak
-30-59: Medium
-60-79: Strong
-80-100: Very Strong
-```
-
-**Endpoint**:
-```
-POST /api/accounts/password-strength/
-```
-
----
-
-### 7. GDPR Compliance
-
-**Purpose**: Comply with EU data protection regulations.
-
-**Features**:
-
-#### Data Export (Right to Access)
-- User can download all their data in JSON format
-- Includes: profile, tasks, activity logs
-- Endpoint: `GET /api/accounts/gdpr/export/`
-
-#### Data Deletion (Right to be Forgotten)
-- User can request account deletion
-- Hard delete (complete removal from database)
-- Requires password confirmation
-- Endpoint: `POST /api/accounts/gdpr/delete/`
-
-#### Consent Management
-- Privacy policy acceptance (required)
-- Data processing consent
-- Marketing communications consent
-- Timestamp tracking
-
-#### Data Retention
-- User activity logs
-- Login attempt history
-- Automatic cleanup of old data
-
-#### Privacy Features
-- Cookie consent
-- Privacy policy display
-- Terms of service
-- Data usage transparency
-
----
-
-## 🔧 Configuration
-
-### Settings.py
+### Configuration
 
 ```python
-# Security settings
-SECURE_SSL_REDIRECT = True
-SECURE_HSTS_SECONDS = 31536000
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+# settings.py
+ACCOUNT_LOCKOUT_ATTEMPTS = 5
+ACCOUNT_LOCKOUT_DURATION = 30  # minutes
+```
 
-# Password validation
+### Behavior
+
+- **Failed attempts tracked** per user
+- **Lockout triggered** at threshold
+- **Auto-unlock** after duration
+- **Manual unlock** by admin
+- **Counter reset** on successful login
+
+### Model Methods
+
+```python
+user.is_locked()  # Check if locked
+user.increment_failed_login()  # Increment counter
+user.reset_failed_login()  # Reset counter
+```
+
+---
+
+## Password Policy
+
+### Requirements
+
+✅ **Minimum 8 characters**  
+✅ **At least one uppercase letter**  
+✅ **At least one lowercase letter**  
+✅ **At least one digit**  
+✅ **At least one special character** (!@#$%^&*...)
+
+### Additional Features
+
+- **Password history**: Cannot reuse last 5 passwords
+- **Password expiry**: 90 days (configurable)
+- **Complexity validation**: Django's built-in validators
+- **Common password check**: Prevents common passwords
+
+### Configuration
+
+```python
+# settings.py
+PASSWORD_HISTORY_COUNT = 5
+PASSWORD_EXPIRY_DAYS = 90
+
 AUTH_PASSWORD_VALIDATORS = [
-    {'NAME': 'accounts.validators.PasswordPolicyValidator'},
+    # ... Django's default validators
+    {
+        'NAME': 'accounts.security.PasswordPolicyValidator',
+    },
+]
+```
+
+### Usage
+
+```python
+from accounts.security import validate_password_strength, check_password_history
+
+# Validate new password
+validate_password_strength(password, user)
+
+# Check against history
+check_password_history(user, password)
+```
+
+---
+
+## GDPR Compliance
+
+### Features Implemented
+
+✅ **Data Export** (Right to Access)  
+✅ **Account Deletion** (Right to be Forgotten)  
+✅ **Consent Tracking**  
+✅ **Data Processing Records**  
+✅ **Privacy Settings**
+
+### API Endpoints
+
+```
+PATCH /api/accounts/gdpr/consent/
+Body: {
+    "gdpr_consent": true,
+    "data_processing_consent": true
+}
+- Updates consent preferences
+
+POST /api/accounts/gdpr/export/
+- Requests data export
+- Returns: All user data in JSON
+
+POST /api/accounts/gdpr/delete/
+Body: {
+    "password": "current_password",
+    "confirmation": "DELETE MY ACCOUNT"
+}
+- Requests account deletion
+- 30-day grace period
+```
+
+### Data Export Format
+
+```json
+{
+  "profile": {
+    "email": "user@example.com",
+    "first_name": "John",
+    "last_name": "Doe",
+    "date_joined": "2026-01-01T00:00:00Z"
+  },
+  "tasks": [...],
+  "login_history": [...],
+  "gdpr_requests": [...]
+}
+```
+
+### Deletion Process
+
+1. User requests deletion
+2. System verifies password
+3. 30-day grace period begins
+4. Email notifications sent
+5. After grace period:
+   - User data anonymized or deleted
+   - Tasks transferred or deleted
+   - Account marked as deleted
+
+---
+
+## Configuration
+
+### Environment Variables
+
+```bash
+# Email Configuration
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_HOST_USER=your-email@gmail.com
+EMAIL_HOST_PASSWORD=your-app-password
+DEFAULT_FROM_EMAIL=noreply@taskboard.com
+
+# Frontend URL
+FRONTEND_URL=https://taskboard.com
+
+# Redis
+REDIS_URL=redis://localhost:6379/1
+
+# Security
+SECURE_SSL_REDIRECT=True
+SECURE_HSTS_SECONDS=31536000
+```
+
+### Django Settings
+
+```python
+# Import security settings
+from .settings_security import *
+
+# Add apps
+INSTALLED_APPS = [
+    # ...
+    'django_redis',
 ]
 
-# Email settings
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-DEFAULT_FROM_EMAIL = 'noreply@taskboard.com'
-
-# Frontend URL for email links
-FRONTEND_URL = 'https://taskboard.com'
-
-# Rate limiting
-REST_FRAMEWORK = {
-    'DEFAULT_THROTTLE_CLASSES': [
-        'accounts.permissions.APIRateThrottle',
-    ],
-    'DEFAULT_THROTTLE_RATES': {
-        'login': '5/min',
-        'register': '3/hour',
-        'password_reset': '3/hour',
-        'api': '100/min',
-        'api_strict': '10/min',
-    }
-}
-
-# Cache for rate limiting (use Redis in production)
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': 'redis://127.0.0.1:6379/1',
-    }
-}
+# Add middleware
+MIDDLEWARE = [
+    # ...
+    'django.middleware.security.SecurityMiddleware',
+]
 ```
 
 ---
 
-## 📊 Security Metrics
+## Testing
 
-### Before Implementation
-- ❌ No email verification
-- ❌ Simple password reset
-- ❌ No rate limiting
-- ❌ No 2FA
-- ❌ No account lockout
-- ❌ Weak password policy
-- ❌ No GDPR compliance
+### Run Security Tests
 
-### After Implementation
-- ✅ Secure email verification (24h expiry)
-- ✅ Protected password reset (1h expiry)
-- ✅ Multi-level rate limiting
-- ✅ Optional 2FA with backup codes
-- ✅ Auto account lockout (5 attempts)
-- ✅ Strong password policy (8+ chars, complexity)
-- ✅ Full GDPR compliance
+```bash
+# All security tests
+pytest accounts/tests/test_security.py -v
 
----
+# Specific features
+pytest accounts/tests/test_email_verification.py
+pytest accounts/tests/test_password_reset.py
+pytest accounts/tests/test_2fa.py
+pytest accounts/tests/test_rate_limiting.py
+pytest accounts/tests/test_account_lockout.py
+pytest accounts/tests/test_password_policy.py
+pytest accounts/tests/test_gdpr.py
+```
 
-## 🛡️ Security Best Practices
+### Coverage
 
-1. **Always use HTTPS in production**
-2. **Enable rate limiting on all endpoints**
-3. **Require email verification for sensitive actions**
-4. **Encourage users to enable 2FA**
-5. **Monitor failed login attempts**
-6. **Regular security audits**
-7. **Keep dependencies updated**
-8. **Use environment variables for secrets**
-9. **Implement logging for security events**
-10. **Regular backup of user data**
+```bash
+pytest --cov=accounts --cov-report=html
+```
 
 ---
 
-## 🔍 Monitoring
+## Deployment Checklist
 
-### Track These Metrics:
-- Failed login attempts per user/IP
-- Account lockout frequency
-- Password reset requests
-- 2FA adoption rate
-- Rate limit hits
-- GDPR requests (export/delete)
+### Before Production
 
-### Alerts:
-- Unusual failed login patterns
-- Mass password reset requests
-- Repeated rate limit violations
-- Multiple account lockouts from same IP
+- [ ] **Configure Redis** for rate limiting
+- [ ] **Set up email service** (SMTP/SendGrid/SES)
+- [ ] **Enable HTTPS** (SSL/TLS)
+- [ ] **Set secure cookies** (SECURE=True)
+- [ ] **Configure CORS** properly
+- [ ] **Set strong SECRET_KEY**
+- [ ] **Enable HSTS** headers
+- [ ] **Test all security features**
+- [ ] **Review rate limits**
+- [ ] **Configure monitoring** (Sentry)
+- [ ] **Set up backups**
+- [ ] **Document emergency procedures**
 
----
+### Environment-Specific
 
-## 🧪 Testing
+**Development:**
+```
+DEBUG=True
+SECURE_SSL_REDIRECT=False
+EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+```
 
-Security features include comprehensive tests:
-- Email verification flow
-- Password reset with expired tokens
-- Rate limiting effectiveness
-- 2FA setup and verification
-- Account lockout after failed attempts
-- Password policy enforcement
-- GDPR data export/deletion
-
----
-
-## 📝 Compliance Checklist
-
-### GDPR
-- ✅ Privacy policy
-- ✅ Consent management
-- ✅ Data export capability
-- ✅ Data deletion (right to be forgotten)
-- ✅ Activity logging
-- ✅ Data retention policies
-
-### OWASP Top 10
-- ✅ Injection prevention (parameterized queries)
-- ✅ Broken authentication protection (2FA, lockout)
-- ✅ Sensitive data exposure (encryption, HTTPS)
-- ✅ Security misconfiguration (secure defaults)
-- ✅ Broken access control (permissions)
+**Production:**
+```
+DEBUG=False
+SECURE_SSL_REDIRECT=True
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+SECURE_HSTS_SECONDS=31536000
+```
 
 ---
 
-## 🚀 Next Steps
+## Security Best Practices
 
-1. Enable security features in production
-2. Configure email service (SendGrid/SES)
-3. Set up Redis for rate limiting
-4. Add security monitoring dashboard
-5. Conduct penetration testing
-6. Security training for team
+1. **Never commit secrets** to git
+2. **Use environment variables** for sensitive data
+3. **Keep dependencies updated**
+4. **Monitor failed login attempts**
+5. **Regular security audits**
+6. **Implement logging** for security events
+7. **Use HTTPS** in production
+8. **Regular backups**
+9. **Incident response plan**
+10. **Security training** for team
 
 ---
 
-**All security features are production-ready!** 🔒
+## Support
+
+For security issues, contact: security@taskboard.com
+
+**Do not** publicly disclose security vulnerabilities.
