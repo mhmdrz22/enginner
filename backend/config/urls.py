@@ -1,19 +1,25 @@
+"""
+URL configuration for config project.
+"""
 from django.contrib import admin
-from django.urls import path, include, re_path
+from django.urls import path, include
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
-from accounts.views import AdminOverviewView, AdminNotifyView
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+)
 
-# Swagger/ReDoc configuration
 schema_view = get_schema_view(
     openapi.Info(
-        title="TaskBoard API",
+        title="Task Management API",
         default_version='v1',
-        description="Complete API documentation for TaskBoard application",
-        terms_of_service="https://www.taskboard.com/terms/",
-        contact=openapi.Contact(email="support@taskboard.com"),
-        license=openapi.License(name="MIT License"),
+        description="API documentation for Task Management System",
+        terms_of_service="https://www.google.com/policies/terms/",
+        contact=openapi.Contact(email="contact@snippets.local"),
+        license=openapi.License(name="BSD License"),
     ),
     public=True,
     permission_classes=(permissions.AllowAny,),
@@ -26,17 +32,17 @@ urlpatterns = [
     path('api/accounts/', include('accounts.urls')),
     path('api/tasks/', include('tasks.urls')),
     
-    # Admin API endpoints (directly under /api/admin/)
-    path('api/admin/overview/', AdminOverviewView.as_view(), name='admin-overview'),
-    path('api/admin/notify/', AdminNotifyView.as_view(), name='admin-notify'),
+    # JWT Authentication
+    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+
+    # Swagger Documentation
+    path('swagger<format>/', schema_view.without_ui(cache_timeout=0), name='schema-json'),
+    path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+    path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
     
-    # API Documentation
-    re_path(r'^swagger(?P<format>\.json|\.yaml)$', 
-            schema_view.without_ui(cache_timeout=0), name='schema-json'),
-    path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), 
-         name='schema-swagger-ui'),
-    path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), 
-         name='schema-redoc'),
-    path('api/docs/', schema_view.with_ui('swagger', cache_timeout=0), 
-         name='api-docs'),
+    # Spectacular Documentation
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 ]
