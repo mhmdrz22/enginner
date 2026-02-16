@@ -1,4 +1,4 @@
-# Generated migration for enhanced Task and User models
+# Safe migration for enhanced Task model
 from django.conf import settings
 from django.db import migrations, models
 import django.db.models.deletion
@@ -12,12 +12,14 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Add new fields to Task model
+        # Add new audit fields to Task model
         migrations.AddField(
             model_name='task',
             name='completed_at',
             field=models.DateTimeField(blank=True, help_text='When the task was marked as completed', null=True),
         ),
+        
+        # Add soft delete fields
         migrations.AddField(
             model_name='task',
             name='is_deleted',
@@ -28,50 +30,62 @@ class Migration(migrations.Migration):
             name='deleted_at',
             field=models.DateTimeField(blank=True, help_text='When the task was deleted', null=True),
         ),
+        
+        # Add tags field
         migrations.AddField(
             model_name='task',
             name='tags',
             field=models.CharField(blank=True, help_text='Comma-separated tags for task organization', max_length=500),
         ),
         
-        # Remove old indexes
-        migrations.RemoveIndex(
+        # Add title index if not exists
+        migrations.AlterField(
             model_name='task',
-            name='task_user_status_idx',
-        ),
-        migrations.RemoveIndex(
-            model_name='task',
-            name='task_priority_due_idx',
-        ),
-        migrations.RemoveIndex(
-            model_name='task',
-            name='task_user_created_idx',
+            name='title',
+            field=models.CharField(db_index=True, help_text='Task title', max_length=200),
         ),
         
-        # Add new indexes with soft delete awareness
-        migrations.AddIndex(
+        # Add user index if not exists
+        migrations.AlterField(
             model_name='task',
-            index=models.Index(fields=['user', 'status', 'is_deleted'], name='task_user_status_del_idx'),
-        ),
-        migrations.AddIndex(
-            model_name='task',
-            index=models.Index(fields=['priority', 'due_date', 'is_deleted'], name='task_priority_due_del_idx'),
-        ),
-        migrations.AddIndex(
-            model_name='task',
-            index=models.Index(fields=['user', '-created_at', 'is_deleted'], name='task_user_created_del_idx'),
+            name='user',
+            field=models.ForeignKey(
+                db_index=True,
+                help_text='User who owns this task',
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name='tasks',
+                to=settings.AUTH_USER_MODEL
+            ),
         ),
         
-        # Add database constraint
+        # Add new composite indexes with soft delete awareness
+        migrations.AddIndex(
+            model_name='task',
+            index=models.Index(fields=['user', 'status', 'is_deleted'], name='task_usr_stat_del_idx'),
+        ),
+        migrations.AddIndex(
+            model_name='task',
+            index=models.Index(fields=['priority', 'due_date', 'is_deleted'], name='task_pri_due_del_idx'),
+        ),
+        migrations.AddIndex(
+            model_name='task',
+            index=models.Index(fields=['user', '-created_at', 'is_deleted'], name='task_usr_crt_del_idx'),
+        ),
+        
+        # Add database constraint for due_date validation
         migrations.AddConstraint(
             model_name='task',
             constraint=models.CheckConstraint(
-                check=models.Q(('due_date__gte', models.F('created_at__date')), ('due_date__isnull', True), _connector='OR'),
+                check=models.Q(
+                    ('due_date__gte', models.F('created_at__date')),
+                    ('due_date__isnull', True),
+                    _connector='OR'
+                ),
                 name='due_date_after_creation'
             ),
         ),
         
-        # Create TaskHistory model
+        # Create TaskHistory model for audit trail
         migrations.CreateModel(
             name='TaskHistory',
             fields=[
@@ -80,8 +94,18 @@ class Migration(migrations.Migration):
                 ('old_value', models.TextField(blank=True, help_text='Previous value of the field')),
                 ('new_value', models.TextField(blank=True, help_text='New value of the field')),
                 ('changed_at', models.DateTimeField(auto_now_add=True, db_index=True, help_text='When the change was made')),
-                ('changed_by', models.ForeignKey(help_text='User who made the change', null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL)),
-                ('task', models.ForeignKey(help_text='Task this history entry belongs to', on_delete=django.db.models.deletion.CASCADE, related_name='history', to='tasks.task')),
+                ('changed_by', models.ForeignKey(
+                    help_text='User who made the change',
+                    null=True,
+                    on_delete=django.db.models.deletion.SET_NULL,
+                    to=settings.AUTH_USER_MODEL
+                )),
+                ('task', models.ForeignKey(
+                    help_text='Task this history entry belongs to',
+                    on_delete=django.db.models.deletion.CASCADE,
+                    related_name='history',
+                    to='tasks.task'
+                )),
             ],
             options={
                 'verbose_name': 'Task History',
@@ -89,8 +113,10 @@ class Migration(migrations.Migration):
                 'ordering': ['-changed_at'],
             },
         ),
+        
+        # Add index for TaskHistory
         migrations.AddIndex(
             model_name='taskhistory',
-            index=models.Index(fields=['task', '-changed_at'], name='task_history_task_time_idx'),
+            index=models.Index(fields=['task', '-changed_at'], name='task_hist_tsk_tm_idx'),
         ),
     ]
