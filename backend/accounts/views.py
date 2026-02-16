@@ -5,7 +5,8 @@ from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
 from django.contrib.auth import get_user_model
 from django.db.models import Count, Q
-from .serializers import UserSerializer, RegisterSerializer
+from django.utils import timezone
+from .serializers import UserSerializer, RegisterSerializer, UserUpdateSerializer
 from .tasks import send_email_task
 from tasks.models import Task
 import uuid
@@ -64,6 +65,10 @@ class LoginView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
+        # Update last login date
+        user.last_login_date = timezone.now()
+        user.save(update_fields=['last_login_date'])
+
         token, created = Token.objects.get_or_create(user=user)
 
         return Response({
@@ -92,11 +97,15 @@ class LogoutView(APIView):
 
 class ProfileView(generics.RetrieveUpdateAPIView):
     """Get or update user profile."""
-    serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
         return self.request.user
+    
+    def get_serializer_class(self):
+        if self.request.method == 'GET':
+            return UserSerializer
+        return UserUpdateSerializer
 
 
 class AdminOverviewView(APIView):
@@ -106,22 +115,41 @@ class AdminOverviewView(APIView):
     permission_classes = [permissions.IsAdminUser]
 
     def get(self, request):
+        # Updated to remove 'username' field
         users = User.objects.annotate(
-            total_tasks=Count('tasks'),
-            open_tasks=Count('tasks', filter=Q(tasks__status__in=['TODO', 'DOING']))
+            total_tasks=Count('tasks', filter=Q(tasks__is_deleted=False)),
+            open_tasks=Count(
+                'tasks',
+                filter=Q(
+                    tasks__status__in=['TODO', 'DOING'],
+                    tasks__is_deleted=False
+                )
+            ),
+            completed_tasks=Count(
+                'tasks',
+                filter=Q(
+                    tasks__status='DONE',
+                    tasks__is_deleted=False
+                )
+            )
         ).values(
             'id',
             'email',
-            'username',
+            'first_name',
+            'last_name',
             'is_active',
+            'is_verified',
+            'created_date',
             'total_tasks',
-            'open_tasks'
+            'open_tasks',
+            'completed_tasks'
         )
 
         return Response({
             'users': list(users),
             'total_users': User.objects.count(),
-            'active_users': User.objects.filter(is_active=True).count()
+            'active_users': User.objects.filter(is_active=True).count(),
+            'verified_users': User.objects.filter(is_verified=True).count()
         })
 
 
