@@ -2,17 +2,14 @@ from rest_framework import status, generics, permissions
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from rest_framework.views import APIView
-from rest_framework.decorators import api_view, permission_classes
 from django.contrib.auth import get_user_model
 from django.db.models import Count, Q
 from django.utils import timezone
 from .serializers import UserSerializer, RegisterSerializer, UserUpdateSerializer
 from .tasks import send_email_task
-from tasks.models import Task
 import uuid
 
 User = get_user_model()
-
 
 class RegisterView(generics.CreateAPIView):
     """User registration endpoint."""
@@ -24,12 +21,10 @@ class RegisterView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        
         return Response({
             'user': UserSerializer(user).data,
             'message': 'User registered successfully'
         }, status=status.HTTP_201_CREATED)
-
 
 class LoginView(APIView):
     """User login endpoint."""
@@ -40,32 +35,19 @@ class LoginView(APIView):
         password = request.data.get('password')
 
         if not email or not password:
-            return Response(
-                {'error': 'Please provide both email and password'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({'error': 'Please provide both email and password'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
-            return Response(
-                {'error': 'Invalid credentials'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
         if not user.check_password(password):
-            return Response(
-                {'error': 'Invalid credentials'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
         if not user.is_active:
-            return Response(
-                {'error': 'Account is disabled'},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            return Response({'error': 'Account is disabled'}, status=status.HTTP_403_FORBIDDEN)
 
-        # Update last login date
         user.last_login_date = timezone.now()
         user.save(update_fields=['last_login_date'])
 
@@ -76,24 +58,17 @@ class LoginView(APIView):
             'user': UserSerializer(user).data
         })
 
-
 class LogoutView(APIView):
     """User logout endpoint - deletes the auth token."""
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
         try:
-            # Delete the user's token
-            request.user.auth_token.delete()
-            return Response({
-                'message': 'Successfully logged out'
-            }, status=status.HTTP_200_OK)
+            if hasattr(request.user, 'auth_token'):
+                request.user.auth_token.delete()
+            return Response({'message': 'Successfully logged out'}, status=status.HTTP_200_OK)
         except Exception as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class ProfileView(generics.RetrieveUpdateAPIView):
     """Get or update user profile."""
@@ -107,43 +82,16 @@ class ProfileView(generics.RetrieveUpdateAPIView):
             return UserSerializer
         return UserUpdateSerializer
 
-
 class AdminOverviewView(APIView):
-    """Admin endpoint to get overview of users and their tasks.
-    Only accessible by staff/superuser.
-    """
+    """Admin endpoint to get overview of users and their tasks."""
     permission_classes = [permissions.IsAdminUser]
 
     def get(self, request):
-        # Updated to remove 'username' field
         users = User.objects.annotate(
             total_tasks=Count('tasks', filter=Q(tasks__is_deleted=False)),
-            open_tasks=Count(
-                'tasks',
-                filter=Q(
-                    tasks__status__in=['TODO', 'DOING'],
-                    tasks__is_deleted=False
-                )
-            ),
-            completed_tasks=Count(
-                'tasks',
-                filter=Q(
-                    tasks__status='DONE',
-                    tasks__is_deleted=False
-                )
-            )
-        ).values(
-            'id',
-            'email',
-            'first_name',
-            'last_name',
-            'is_active',
-            'is_verified',
-            'created_date',
-            'total_tasks',
-            'open_tasks',
-            'completed_tasks'
-        )
+            open_tasks=Count('tasks', filter=Q(tasks__status__in=['TODO', 'DOING'], tasks__is_deleted=False)),
+            completed_tasks=Count('tasks', filter=Q(tasks__status='DONE', tasks__is_deleted=False))
+        ).values('id', 'email', 'first_name', 'last_name', 'is_active', 'is_verified', 'created_date', 'total_tasks', 'open_tasks', 'completed_tasks')
 
         return Response({
             'users': list(users),
@@ -152,11 +100,8 @@ class AdminOverviewView(APIView):
             'verified_users': User.objects.filter(is_verified=True).count()
         })
 
-
 class AdminNotifyView(APIView):
-    """Admin endpoint to send email notifications to users.
-    Only accessible by staff/superuser.
-    """
+    """Admin endpoint to send email notifications to users."""
     permission_classes = [permissions.IsAdminUser]
 
     def post(self, request):
@@ -165,25 +110,12 @@ class AdminNotifyView(APIView):
         subject = request.data.get('subject', 'Notification from TaskBoard')
 
         if not recipients:
-            return Response(
-                {'error': 'Recipients list is required'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
+            return Response({'error': 'Recipients list is required'}, status=status.HTTP_400_BAD_REQUEST)
         if not message:
-            return Response(
-                {'error': 'Message is required'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({'error': 'Message is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Generate unique job ID
         job_id = str(uuid.uuid4())
-
-        # Queue email task
-        task = send_email_task.apply_async(
-            args=[recipients, subject, message],
-            task_id=job_id
-        )
+        task = send_email_task.apply_async(args=[recipients, subject, message], task_id=job_id)
 
         return Response({
             'job_id': job_id,
