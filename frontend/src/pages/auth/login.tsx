@@ -1,41 +1,33 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
 import { Link } from 'react-router-dom'
-import { Loader2 } from 'lucide-react'
+import { useAuth } from '@/hooks/use-auth'
+import { loginSchema, type LoginFormData } from '@/lib/validations/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { useAuth } from '@/hooks/use-auth'
 
-const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(1, 'Password is required'),
-})
-
-type LoginForm = z.infer<typeof loginSchema>
-
-export function LoginPage() {
+export default function LoginPage() {
   const { login, isLoggingIn } = useAuth()
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginForm>({
+  } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   })
 
-  const onSubmit = (data: LoginForm) => {
+  const onSubmit = (data: LoginFormData) => {
     login(data)
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-2xl font-bold text-center">Welcome back</CardTitle>
+          <CardDescription className="text-center">
             Enter your credentials to access your account
           </CardDescription>
         </CardHeader>
@@ -51,7 +43,7 @@ export function LoginPage() {
                 disabled={isLoggingIn}
               />
               {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
+                <p className="text-sm text-red-500">{errors.email.message}</p>
               )}
             </div>
             <div className="space-y-2">
@@ -64,14 +56,17 @@ export function LoginPage() {
                 disabled={isLoggingIn}
               />
               {errors.password && (
-                <p className="text-sm text-destructive">{errors.password.message}</p>
+                <p className="text-sm text-red-500">{errors.password.message}</p>
               )}
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={isLoggingIn}>
-              {isLoggingIn && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Sign in
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isLoggingIn}
+            >
+              {isLoggingIn ? 'Signing in...' : 'Sign in'}
             </Button>
             <p className="text-sm text-center text-muted-foreground">
               Don't have an account?{' '}

@@ -1,47 +1,33 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
 import { Link } from 'react-router-dom'
-import { Loader2 } from 'lucide-react'
+import { useAuth } from '@/hooks/use-auth'
+import { registerSchema, type RegisterFormData } from '@/lib/validations/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { useAuth } from '@/hooks/use-auth'
 
-const registerSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  first_name: z.string().min(1, 'First name is required'),
-  last_name: z.string().min(1, 'Last name is required'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-  password2: z.string(),
-}).refine((data) => data.password === data.password2, {
-  message: 'Passwords do not match',
-  path: ['password2'],
-})
-
-type RegisterForm = z.infer<typeof registerSchema>
-
-export function RegisterPage() {
+export default function RegisterPage() {
   const { register: registerUser, isRegistering } = useAuth()
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<RegisterForm>({
+  } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
   })
 
-  const onSubmit = (data: RegisterForm) => {
+  const onSubmit = (data: RegisterFormData) => {
     registerUser(data)
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-2xl font-bold text-center">Create an account</CardTitle>
+          <CardDescription className="text-center">
             Enter your information to get started
           </CardDescription>
         </CardHeader>
@@ -57,7 +43,7 @@ export function RegisterPage() {
                   disabled={isRegistering}
                 />
                 {errors.first_name && (
-                  <p className="text-sm text-destructive">{errors.first_name.message}</p>
+                  <p className="text-sm text-red-500">{errors.first_name.message}</p>
                 )}
               </div>
               <div className="space-y-2">
@@ -69,7 +55,7 @@ export function RegisterPage() {
                   disabled={isRegistering}
                 />
                 {errors.last_name && (
-                  <p className="text-sm text-destructive">{errors.last_name.message}</p>
+                  <p className="text-sm text-red-500">{errors.last_name.message}</p>
                 )}
               </div>
             </div>
@@ -83,7 +69,7 @@ export function RegisterPage() {
                 disabled={isRegistering}
               />
               {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
+                <p className="text-sm text-red-500">{errors.email.message}</p>
               )}
             </div>
             <div className="space-y-2">
@@ -96,7 +82,7 @@ export function RegisterPage() {
                 disabled={isRegistering}
               />
               {errors.password && (
-                <p className="text-sm text-destructive">{errors.password.message}</p>
+                <p className="text-sm text-red-500">{errors.password.message}</p>
               )}
             </div>
             <div className="space-y-2">
@@ -109,14 +95,17 @@ export function RegisterPage() {
                 disabled={isRegistering}
               />
               {errors.password2 && (
-                <p className="text-sm text-destructive">{errors.password2.message}</p>
+                <p className="text-sm text-red-500">{errors.password2.message}</p>
               )}
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={isRegistering}>
-              {isRegistering && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create account
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isRegistering}
+            >
+              {isRegistering ? 'Creating account...' : 'Create account'}
             </Button>
             <p className="text-sm text-center text-muted-foreground">
               Already have an account?{' '}
