@@ -14,20 +14,17 @@ class TaskViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'priority']
     search_fields = ['title', 'description', 'tags']
-    # Add default ordering to prevent slicing errors
-    ordering_fields = ['due_date', 'priority', 'created_date']
-    ordering = ['-created_date']
+    # Corrected field name: created_date -> created_at
+    ordering_fields = ['due_date', 'priority', 'created_at']
+    ordering = ['-created_at']
 
     def get_queryset(self):
-        # Use all_objects to access deleted tasks if needed
         manager = Task.all_objects if hasattr(Task, 'all_objects') else Task.objects
         queryset = manager.filter(user=self.request.user)
 
-        # If action is restore or history, show deleted tasks too
         if self.action in ['restore', 'history', 'retrieve']:
             return queryset
         
-        # Otherwise (normal list), show only live tasks
         return queryset.filter(is_deleted=False)
 
     def perform_create(self, serializer):
@@ -43,18 +40,15 @@ class TaskViewSet(viewsets.ModelViewSet):
         self._clear_user_cache()
 
     def _clear_user_cache(self):
-        # Handle LocMemCache bug in tests
-        cache_pattern = f'tasks_list_{self.request.user.id}_*'
+        # Safe cache clearing for both production (Redis) and tests (LocMem)
         if hasattr(cache, 'delete_pattern'):
-            cache.delete_pattern(cache_pattern)
+            cache.delete_pattern(f'tasks_list_{self.request.user.id}_*')
         else:
-            # In test environment where Redis is not present, clear all cache (safe for tests)
             cache.clear()
 
     @action(detail=True, methods=['post'])
     def restore(self, request, pk=None):
         try:
-            # Try to find task (even if deleted)
             task = self.get_queryset().get(pk=pk)
         except Task.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
@@ -73,3 +67,14 @@ class TaskViewSet(viewsets.ModelViewSet):
         history = TaskHistory.objects.filter(task=task).order_by('-changed_at')
         serializer = TaskHistorySerializer(history, many=True)
         return Response(serializer.data)
+
+    # Added statistics action which is called in tests
+    @action(detail=False, methods=['get'], url_path='statistics', url_name='task-statistics')
+    def task_statistics(self, request):
+        total = self.get_queryset().count()
+        completed = self.get_queryset().filter(status='DONE').count()
+        return Response({
+            'total_tasks': total,
+            'completed_tasks': completed,
+            'completion_rate': (completed / total * 100) if total > 0 else 0
+        })

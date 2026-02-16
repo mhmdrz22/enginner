@@ -5,28 +5,22 @@ from tasks.models import Task
 def create_task_with_past_due_date(user, title, days_overdue=1, **kwargs):
     """Helper to create a task with a due_date in the past."""
     
-    # Calculate past due date
     due_date = kwargs.get('due_date') or (timezone.now() - timedelta(days=days_overdue))
+    # Corrected field name: created_date -> created_at
+    created_at = due_date - timedelta(days=1)
 
-    # Important trick: Set created_date to one day before due_date to pass DB constraints
-    created_date = due_date - timedelta(days=1)
+    task_kwargs = {k: v for k, v in kwargs.items() if k != 'due_date' and k != 'created_at'}
 
-    # Remove conflicting args
-    task_kwargs = {k: v for k, v in kwargs.items() if k != 'due_date' and k != 'created_date'}
-
-    # Create task
     task = Task.objects.create(
         user=user,
         title=title,
         **task_kwargs
     )
     
-    # Manually update dates (create usually ignores auto_now_add override)
-    # Using update directly on DB bypasses Python-side restrictions
-    # and updates auto_now fields too.
+    # Direct DB update with correct field name to bypass auto_now_add
     Task.objects.filter(pk=task.pk).update(
         due_date=due_date,
-        created_date=created_date
+        created_at=created_at
     )
     
     task.refresh_from_db()
