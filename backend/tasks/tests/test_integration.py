@@ -29,7 +29,7 @@ class TaskViewSetIntegrationTests(TestCase):
 
     def test_list_tasks_authenticated(self):
         """Test listing tasks requires authentication."""
-        url = reverse('task-list')
+        url = reverse('tasks:task-list')
         
         # Without auth
         response = self.client.get(url)
@@ -46,7 +46,7 @@ class TaskViewSetIntegrationTests(TestCase):
         Task.objects.create(user=self.user2, title='User2 Task')
         
         self.client.force_authenticate(user=self.user1)
-        url = reverse('task-list')
+        url = reverse('tasks:task-list')
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -58,7 +58,7 @@ class TaskViewSetIntegrationTests(TestCase):
     def test_create_task(self):
         """Test creating a task."""
         self.client.force_authenticate(user=self.user1)
-        url = reverse('task-list')
+        url = reverse('tasks:task-list')
         data = {
             'title': 'New Task',
             'description': 'Task description',
@@ -82,7 +82,7 @@ class TaskViewSetIntegrationTests(TestCase):
         )
         
         self.client.force_authenticate(user=self.user1)
-        url = reverse('task-detail', kwargs={'pk': task.pk})
+        url = reverse('tasks:task-detail', kwargs={'pk': task.pk})
         data = {'title': 'Updated Title'}
         
         response = self.client.patch(url, data)
@@ -99,7 +99,7 @@ class TaskViewSetIntegrationTests(TestCase):
         )
         
         self.client.force_authenticate(user=self.user1)
-        url = reverse('task-detail', kwargs={'pk': task.pk})
+        url = reverse('tasks:task-detail', kwargs={'pk': task.pk})
         data = {'title': 'Hacked'}
         
         response = self.client.patch(url, data)
@@ -114,7 +114,7 @@ class TaskViewSetIntegrationTests(TestCase):
         )
         
         self.client.force_authenticate(user=self.user1)
-        url = reverse('task-detail', kwargs={'pk': task.pk})
+        url = reverse('tasks:task-detail', kwargs={'pk': task.pk})
         
         response = self.client.delete(url)
         
@@ -131,7 +131,7 @@ class TaskViewSetIntegrationTests(TestCase):
         task.soft_delete()
         
         self.client.force_authenticate(user=self.user1)
-        url = reverse('task-restore', kwargs={'pk': task.pk})
+        url = reverse('tasks:task-restore', kwargs={'pk': task.pk})
         
         response = self.client.post(url)
         
@@ -153,7 +153,7 @@ class TaskViewSetIntegrationTests(TestCase):
         )
         
         self.client.force_authenticate(user=self.user1)
-        url = reverse('task-history', kwargs={'pk': task.pk})
+        url = reverse('tasks:task-history', kwargs={'pk': task.pk})
         
         response = self.client.get(url)
         
@@ -167,7 +167,7 @@ class TaskViewSetIntegrationTests(TestCase):
         Task.objects.create(user=self.user1, title='DONE Task', status='DONE')
         
         self.client.force_authenticate(user=self.user1)
-        url = reverse('task-list') + '?status=TODO'
+        url = reverse('tasks:task-list') + '?status=TODO'
         
         response = self.client.get(url)
         
@@ -181,7 +181,7 @@ class TaskViewSetIntegrationTests(TestCase):
         Task.objects.create(user=self.user1, title='Buy groceries')
         
         self.client.force_authenticate(user=self.user1)
-        url = reverse('task-list') + '?search=Meeting'
+        url = reverse('tasks:task-list') + '?search=Meeting'
         
         response = self.client.get(url)
         
@@ -195,7 +195,7 @@ class TaskViewSetIntegrationTests(TestCase):
         task2 = Task.objects.create(user=self.user1, title='Task 2', status='TODO')
         
         self.client.force_authenticate(user=self.user1)
-        url = reverse('task-bulk-update')
+        url = reverse('tasks:task-bulk-update')
         data = {
             'ids': [task1.id, task2.id],
             'status': 'DONE'
@@ -215,7 +215,7 @@ class TaskViewSetIntegrationTests(TestCase):
         task2 = Task.objects.create(user=self.user1, title='Task 2')
         
         self.client.force_authenticate(user=self.user1)
-        url = reverse('task-bulk-delete')
+        url = reverse('tasks:task-bulk-delete')
         data = {'ids': [task1.id, task2.id]}
         
         response = self.client.post(url, data)
