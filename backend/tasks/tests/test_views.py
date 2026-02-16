@@ -7,7 +7,6 @@ from django.utils import timezone
 from datetime import timedelta
 from rest_framework.test import APITestCase
 from rest_framework import status
-from rest_framework.authtoken.models import Token
 from tasks.models import Task
 
 
@@ -29,18 +28,16 @@ class TaskAPITests(APITestCase):
         # Create users with unique credentials
         self.user1 = User.objects.create_user(
             email=f'user1_{uid1}@example.com',
-            username=f'user1_{uid1}',
-            password='User1Pass123!'
+            password='User1Pass123!',
+            first_name='User',
+            last_name='One'
         )
         self.user2 = User.objects.create_user(
             email=f'user2_{uid2}@example.com',
-            username=f'user2_{uid2}',
-            password='User2Pass123!'
+            password='User2Pass123!',
+            first_name='User',
+            last_name='Two'
         )
-        
-        # Create tokens
-        self.token1 = Token.objects.create(user=self.user1)
-        self.token2 = Token.objects.create(user=self.user2)
         
         # URLs
         self.list_url = reverse('tasks:task-list')
@@ -63,11 +60,11 @@ class TaskAPITests(APITestCase):
         # Create task for user2 (should not appear)
         Task.objects.create(user=self.user2, title='Task 3')
         
-        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
+        self.client.force_authenticate(user=self.user1)
         response = self.client.get(self.list_url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
+        self.assertEqual(response.data['count'], 2)
 
     def test_list_tasks_unauthenticated(self):
         """Test unauthenticated user cannot list tasks."""
@@ -77,7 +74,7 @@ class TaskAPITests(APITestCase):
 
     def test_create_task_authenticated(self):
         """Test authenticated user can create task."""
-        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
+        self.client.force_authenticate(user=self.user1)
         response = self.client.post(
             self.list_url,
             self.task_data,
@@ -97,7 +94,7 @@ class TaskAPITests(APITestCase):
         data = self.task_data.copy()
         del data['title']
         
-        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
+        self.client.force_authenticate(user=self.user1)
         response = self.client.post(self.list_url, data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -110,7 +107,7 @@ class TaskAPITests(APITestCase):
         )
         
         url = reverse('tasks:task-detail', kwargs={'pk': task.id})
-        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
+        self.client.force_authenticate(user=self.user1)
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -125,7 +122,7 @@ class TaskAPITests(APITestCase):
         )
         
         url = reverse('tasks:task-detail', kwargs={'pk': task.id})
-        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
+        self.client.force_authenticate(user=self.user1)
         
         update_data = {
             'title': 'Updated Title',
@@ -141,21 +138,21 @@ class TaskAPITests(APITestCase):
         self.assertEqual(task.status, 'DOING')
 
     def test_delete_task(self):
-        """Test deleting task."""
+        """Test deleting task (soft delete)."""
         task = Task.objects.create(
             user=self.user1,
             title='Delete Task'
         )
         
         url = reverse('tasks:task-detail', kwargs={'pk': task.id})
-        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
+        self.client.force_authenticate(user=self.user1)
         response = self.client.delete(url)
         
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         
-        # Verify deleted
-        with self.assertRaises(Task.DoesNotExist):
-            Task.objects.get(id=task.id)
+        # Verify soft deleted (is_deleted=True)
+        task.refresh_from_db()
+        self.assertTrue(task.is_deleted)
 
     def test_user_cannot_access_other_user_task(self):
         """Test user cannot access another user's task."""
@@ -165,7 +162,7 @@ class TaskAPITests(APITestCase):
         )
         
         url = reverse('tasks:task-detail', kwargs={'pk': task.id})
-        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
+        self.client.force_authenticate(user=self.user1)
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -178,7 +175,7 @@ class TaskAPITests(APITestCase):
         )
         
         url = reverse('tasks:task-detail', kwargs={'pk': task.id})
-        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
+        self.client.force_authenticate(user=self.user1)
         
         response = self.client.patch(
             url,
@@ -196,7 +193,7 @@ class TaskAPITests(APITestCase):
         )
         
         url = reverse('tasks:task-detail', kwargs={'pk': task.id})
-        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
+        self.client.force_authenticate(user=self.user1)
         response = self.client.delete(url)
         
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -210,24 +207,24 @@ class TaskAPITests(APITestCase):
         Task.objects.create(user=self.user1, title='Doing', status='DOING')
         Task.objects.create(user=self.user1, title='Done', status='DONE')
         
-        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
+        self.client.force_authenticate(user=self.user1)
         response = self.client.get(f'{self.list_url}?status=TODO')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['status'], 'TODO')
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['results'][0]['status'], 'TODO')
 
     def test_filter_tasks_by_priority(self):
         """Test filtering tasks by priority."""
         Task.objects.create(user=self.user1, title='Low', priority='LOW')
         Task.objects.create(user=self.user1, title='High', priority='HIGH')
         
-        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
+        self.client.force_authenticate(user=self.user1)
         response = self.client.get(f'{self.list_url}?priority=HIGH')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['priority'], 'HIGH')
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['results'][0]['priority'], 'HIGH')
 
     def test_mark_task_as_done(self):
         """Test marking task as done."""
@@ -238,7 +235,7 @@ class TaskAPITests(APITestCase):
         )
         
         url = reverse('tasks:task-detail', kwargs={'pk': task.id})
-        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token1.key}')
+        self.client.force_authenticate(user=self.user1)
         
         response = self.client.patch(
             url,
