@@ -123,8 +123,9 @@ class PerformanceTests(TestCase):
         
         Task.objects.bulk_create(tasks)
         
-        # Soft delete half
-        Task.objects.filter(user=self.user)[:25].update(is_deleted=True)
+        # Soft delete half - Fix: avoid update on slice
+        task_ids = Task.objects.filter(user=self.user).values_list('id', flat=True)[:25]
+        Task.objects.filter(id__in=list(task_ids)).update(is_deleted=True)
         
         with self.assertNumQueries(1):
             active_tasks = list(Task.objects.filter(
