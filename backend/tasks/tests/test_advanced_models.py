@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import date, timedelta
 from tasks.models import Task
+from .helpers import create_task_with_past_due_date
 
 User = get_user_model()
 
@@ -19,12 +20,11 @@ class TaskModelAdvancedTests(TestCase):
 
     def test_is_overdue_property(self):
         """Test is_overdue property."""
-        yesterday = date.today() - timedelta(days=1)
-        task = Task.objects.create(
+        task = create_task_with_past_due_date(
             user=self.user,
             title='Overdue Task',
             status=Task.Status.TODO,
-            due_date=yesterday
+            days_overdue=1
         )
         
         self.assertTrue(task.is_overdue)
@@ -43,24 +43,22 @@ class TaskModelAdvancedTests(TestCase):
 
     def test_is_not_overdue_when_done(self):
         """Test completed task is not overdue even with past date."""
-        yesterday = date.today() - timedelta(days=1)
-        task = Task.objects.create(
+        task = create_task_with_past_due_date(
             user=self.user,
             title='Completed Task',
             status=Task.Status.DONE,
-            due_date=yesterday
+            days_overdue=1
         )
         
         self.assertFalse(task.is_overdue)
 
     def test_is_not_overdue_when_deleted(self):
         """Test deleted task is not overdue."""
-        yesterday = date.today() - timedelta(days=1)
-        task = Task.objects.create(
+        task = create_task_with_past_due_date(
             user=self.user,
             title='Deleted Task',
             status=Task.Status.TODO,
-            due_date=yesterday
+            days_overdue=1
         )
         task.soft_delete()
         
