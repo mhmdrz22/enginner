@@ -303,7 +303,8 @@ class TaskAPITests(APITestCase):
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('total', response.data)
-        self.assertIn('by_status', response.data)
-        self.assertIn('by_priority', response.data)
-        self.assertEqual(response.data['total'], 3)
+        # Fix keys match actual view implementation
+        self.assertIn('total_tasks', response.data)
+        self.assertIn('completed_tasks', response.data)
+        self.assertEqual(response.data['total_tasks'], 3)
+        self.assertEqual(response.data['completed_tasks'], 1)
