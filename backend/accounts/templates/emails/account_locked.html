@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Account Locked</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #f44336;">Account Security Alert</h2>
+        <p>Hi {{ user.first_name|default:user.email }},</p>
+        <p>Your TaskBoard account has been temporarily locked due to multiple failed login attempts.</p>
+        <p><strong>Your account will be automatically unlocked in 30 minutes.</strong></p>
+        <p>If you didn't attempt to log in, please:</p>
+        <ul>
+            <li>Reset your password immediately</li>
+            <li>Review your recent account activity</li>
+            <li>Contact support if you notice any suspicious activity</li>
+        </ul>
+        <p>If this was you, please wait 30 minutes and try again.</p>
+        <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+        <p style="font-size: 12px; color: #999;">TaskBoard Security Team</p>
+    </div>
+</body>
+</html>

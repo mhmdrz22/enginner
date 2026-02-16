@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Verify your email</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2>Welcome to TaskBoard!</h2>
+        <p>Hi {{ user.first_name|default:user.email }},</p>
+        <p>Thank you for registering with TaskBoard. To complete your registration, please verify your email address by clicking the button below:</p>
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{ verification_url }}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Verify Email</a>
+        </div>
+        <p>Or copy and paste this link into your browser:</p>
+        <p style="word-break: break-all; color: #666;">{{ verification_url }}</p>
+        <p>This link will expire in 24 hours.</p>
+        <p>If you didn't create an account with TaskBoard, please ignore this email.</p>
+        <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+        <p style="font-size: 12px; color: #999;">TaskBoard Team</p>
+    </div>
+</body>
+</html>

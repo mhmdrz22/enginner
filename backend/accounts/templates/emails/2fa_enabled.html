@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>2FA Enabled</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #4CAF50;">Two-Factor Authentication Enabled</h2>
+        <p>Hi {{ user.first_name|default:user.email }},</p>
+        <p>Two-factor authentication (2FA) has been successfully enabled for your TaskBoard account.</p>
+        <p>Your account is now more secure! You'll need to enter a verification code from your authenticator app each time you log in.</p>
+        <p><strong>Important:</strong> Make sure to save your backup codes in a safe place. You can use them to access your account if you lose your authenticator device.</p>
+        <p>If you didn't enable 2FA, please contact support immediately.</p>
+        <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+        <p style="font-size: 12px; color: #999;">TaskBoard Security Team</p>
+    </div>
+</body>
+</html>
