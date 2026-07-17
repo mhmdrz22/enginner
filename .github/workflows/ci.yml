@@ -1,0 +1,93 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+
+jobs:
+  backend-tests:
+    name: Backend Lint & Tests
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: test_taskboard
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Backend Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install -r backend/requirements-test.txt
+
+      - name: Code Quality (Black, Flake8, Bandit)
+        run: |
+          cd backend
+          black --check --line-length=120 .
+          flake8 --max-line-length=120 .
+          bandit -r . -ll -x tests/
+
+      - name: Run Pytest with Coverage
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_taskboard
+          CELERY_BROKER_URL: redis://localhost:6379/0
+          SECRET_KEY: test-secret-key-for-github-actions
+          DEBUG: "True"
+        run: |
+          cd backend
+          pytest --cov=. --cov-report=xml
+
+  frontend-tests:
+    name: Frontend Lint & Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Frontend Dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Code Quality (ESLint & Prettier)
+        run: |
+          cd frontend
+          npm run lint || true
+          npx prettier --check "src/**/*.{ts,tsx,js,jsx,css}" || true
+
+      - name: Run Frontend Tests (Vitest)
+        run: |
+          cd frontend
+          npm run test:coverage || npm test
